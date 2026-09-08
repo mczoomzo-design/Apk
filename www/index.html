@@ -3101,7 +3101,18 @@ function roundRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+
   ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
 async function savePhoto(){
   const url=await buildStrip('digital');
-  const a=document.createElement('a');a.href=url;a.download='photobooth.png';a.click();
+  const fname=(orderNo?('photobooth_'+orderNo):'photobooth')+'.png';
+  // In the APK the WebView ignores <a download>, so save through the native bridge.
+  if(isNative() && window.Capacitor.Plugins.GallerySaver){
+    try{
+      await window.Capacitor.Plugins.GallerySaver.save({data:url, name:fname});
+      alert('บันทึกรูปลงเครื่องแล้ว ✓\nดูได้ในแกลเลอรี โฟลเดอร์ Pictures/PhotoBooth');
+    }catch(e){
+      alert('บันทึกไม่สำเร็จ: '+(e&&e.message?e.message:e)+'\n\nโปรดอนุญาตสิทธิ์ที่เกี่ยวข้องแล้วลองใหม่');
+    }
+    return;
+  }
+  const a=document.createElement('a');a.href=url;a.download=fname;a.click();
 }
 
 /* ---------------- printer settings ---------------- */

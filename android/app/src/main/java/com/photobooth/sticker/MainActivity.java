@@ -14,6 +14,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(BluetoothPrinterPlugin.class);
+        registerPlugin(GallerySaverPlugin.class);
         super.onCreate(savedInstanceState);
         requestStartupPermissions();
     }
@@ -28,6 +29,11 @@ public class MainActivity extends BridgeActivity {
                 perms.add(Manifest.permission.BLUETOOTH_CONNECT);
             if (checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED)
                 perms.add(Manifest.permission.BLUETOOTH_SCAN);
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            // Saving to the gallery on Android 9 and below needs storage write.
+            if (checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED)
+                perms.add(Manifest.permission.WRITE_EXTERNAL_STORAGE);
         }
         if (!perms.isEmpty()) requestPermissions(perms.toArray(new String[0]), 1001);
     }
