@@ -361,7 +361,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
       <button class="cam-x" onclick="stopCamera();go('preview')">✕</button>
       <button class="timer-badge" onclick="cycleTimer()">⏱ <span id="timerVal">5</span> วิ</button>
     </div>
-    <div class="progress-pill" id="camPill">แตะครั้งเดียว ถ่ายครบทุกรูป</div>
+    <div class="progress-pill" id="camPill">แตะครั้งเดียว ถ่าย 1 รูป แล้วแบ่งเลเยอร์</div>
     <div id="camFlash"></div>
     <div class="cam-stage">
       <div class="cam-frame" id="camFrame">
@@ -2832,25 +2832,22 @@ async function startCamera(){
   updateCamUI();
 }
 function buildCamFrame(){
-  const t=selected, f=document.getElementById('camFrame');
-  f.style.gridTemplateColumns=`repeat(${t.cols},1fr)`;
-  let html='';
-  for(let i=0;i<t.slots;i++){
-    html+=`<div class="cam-slot" data-i="${i}">
-      <span class="slot-num">${i+1}</span>
+  const f=document.getElementById('camFrame');
+  // Single live preview — one shot fills every layer of the chosen layout.
+  f.style.gridTemplateColumns='1fr';
+  f.innerHTML=`<div class="cam-slot current" data-i="0">
       <video muted playsinline></video>
       <div class="cam-placeholder">กำลังเปิดกล้อง…</div>
-    </div>`;
-  }
-  f.innerHTML=html+`<div class="count-overlay" id="countOverlay"><div class="count-num" id="countNum">${timerSec}</div></div>`;
+    </div>`+
+    `<div class="count-overlay" id="countOverlay"><div class="count-num" id="countNum">${timerSec}</div></div>`;
 }
 function updateCamUI(){
-  document.querySelectorAll('#camFrame .cam-slot').forEach((el,i)=>{
-    el.classList.toggle('current', i===slotIndex && !photos[i]);
-    el.classList.toggle('filled', !!photos[i]);
-  });
-  const done=photos.filter(Boolean).length;
-  document.getElementById('camPill').textContent = done<selected.slots ? `รูปที่ ${slotIndex+1} / ${selected.slots}` : 'ครบทุกรูปแล้ว!';
+  const done=photos.filter(Boolean).length>0;
+  const pill=document.getElementById('camPill');
+  if(done){ pill.textContent='ถ่ายเสร็จแล้ว!'; return; }
+  pill.textContent = selected.slots>1
+    ? `ถ่าย 1 ครั้ง · แบ่งเป็น ${selected.slots} รูป`
+    : 'แตะปุ่มเพื่อถ่าย';
 }
 function cycleTimer(){ timerSec = timerSec===3?5:(timerSec===5?10:3); document.getElementById('timerVal').textContent=timerSec; }
 function toggleFlash(el){ flashOn=!flashOn; document.getElementById('flashIc').textContent=flashOn?'🔦':'⚡'; }
@@ -2873,26 +2870,19 @@ function flashScreen(){
   el.style.opacity='1'; setTimeout(()=>el.style.opacity='0',120);
 }
 
-// press ONCE -> auto countdown + shoot every photo in sequence
+// press ONCE -> one countdown, one shot, then fill every layer with it
 let shooting=false;
 async function shoot(){
   if(shooting) return; shooting=true;
   const btn=document.getElementById('shutterBtn'); btn.style.pointerEvents='none'; btn.style.opacity='.5';
-  for(let i=0;i<selected.slots;i++){
-    slotIndex = photos.findIndex(p=>!p);
-    if(slotIndex<0) break;
-    updateCamUI();
-    await countdownOnce(timerSec);
-    flashScreen();
-    captureCurrent();
-    if(photos.some(p=>!p)) await wait(900);   // short pause before next shot
-  }
+  await countdownOnce(timerSec);
+  flashScreen();
+  captureOnce();
   shooting=false; btn.style.pointerEvents=''; btn.style.opacity='';
-  if(photos.every(Boolean)){ await wait(300); stopCamera(); go('review'); drawReview(); }
+  await wait(300); stopCamera(); go('review'); drawReview();
 }
-function captureCurrent(){
-  const slot=document.querySelector(`#camFrame .cam-slot[data-i="${slotIndex}"]`);
-  const video=slot.querySelector('video');
+function captureOnce(){
+  const video=document.querySelector('#camFrame video');
   const c=document.createElement('canvas'); c.width=400;c.height=500;
   const ctx=c.getContext('2d');
   if(video && video.videoWidth){
@@ -2901,15 +2891,19 @@ function captureCurrent(){
     else{sw=video.videoWidth;sh=sw/cr;sx=0;sy=(video.videoHeight-sh)/2;}
     ctx.drawImage(video,sx,sy,sw,sh,0,0,c.width,c.height);
   }else{
-    const cols=['#ffb3d1','#a7c8ff','#c5b3ff','#a7e8c4','#ffd59e','#ff9ec4'];
-    ctx.fillStyle=cols[slotIndex%cols.length]; ctx.fillRect(0,0,c.width,c.height);
+    ctx.fillStyle='#a7c8ff'; ctx.fillRect(0,0,c.width,c.height);
     ctx.fillStyle='rgba(255,255,255,.85)';ctx.font='bold 120px Prompt';ctx.textAlign='center';
     ctx.fillText('☺',c.width/2,c.height/2+40);
   }
-  photos[slotIndex]=c.toDataURL('image/jpeg',0.9);
-  const img=document.createElement('img');img.src=photos[slotIndex];
-  slot.querySelector('video')?.remove(); slot.querySelector('.cam-placeholder')?.remove();
-  slot.appendChild(img); slot.classList.add('filled');
+  const url=c.toDataURL('image/jpeg',0.9);
+  // one shot → every layer of the layout gets the same photo
+  photos=new Array(selected.slots).fill(url);
+  const slot=document.querySelector('#camFrame .cam-slot');
+  if(slot){
+    const img=document.createElement('img');img.src=url;
+    slot.querySelector('video')?.remove(); slot.querySelector('.cam-placeholder')?.remove();
+    slot.appendChild(img); slot.classList.add('filled');
+  }
   updateCamUI();
 }
 function stopCamera(){ if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;} }
@@ -2951,7 +2945,14 @@ async function uploadToGitHub(dataURL,id){
   return res.json();
 }
 
+let warnedNoCloud=false;
 async function startPrint(){
+  // QR only resolves to a real photo when the cloud repo + token are set in ⚙︎.
+  const cc=ghCfg();
+  if((!cc.owner||!cc.repo||!cc.token) && !warnedNoCloud){
+    warnedNoCloud=true;
+    alert('ยังไม่ได้ตั้งค่า Cloud สำหรับ QR\n\nQR บนสลิปจะยังโหลดรูปไม่ได้จนกว่าจะกรอกที่ปุ่ม ⚙︎ หน้าแรก:\n• GitHub Owner\n• Repository\n• Pages URL\n• Access Token\n\n(รูปยังพิมพ์/บันทึกลงเครื่องได้ตามปกติ)');
+  }
   go('printing'); setBar(0);
   spawnConfetti(document.getElementById('printerIll'));
   if(!orderNo) newOrder();
@@ -3066,8 +3067,8 @@ function buildStrip(mode){
       center(orderNo,y+14,'20px '+mono,ink); y+=42;
 
       // ---- QR (real, scannable, links to downloadable photo) ----
-      const qs=150; drawQRAt(ctx,(W-qs)/2,y,qs); y+=qs+14;
-      center('SCAN TO DOWNLOAD',y,'600 20px Prompt',ink); y+=42;
+      const qs=340; drawQRAt(ctx,(W-qs)/2,y,qs); y+=qs+18;
+      center('SCAN TO DOWNLOAD',y,'600 22px Prompt',ink); y+=42;
       dash(y); y+=46;
 
       // ---- signature ----
