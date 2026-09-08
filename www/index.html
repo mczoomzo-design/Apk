@@ -424,6 +424,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
       <canvas id="qr" width="96" height="96"></canvas>
       <div class="qt"><b>SCAN TO DOWNLOAD</b><br><small>สแกนเพื่อดาวน์โหลดรูปดิจิทัล</small></div>
     </div>
+    <div id="upNote" style="max-width:340px;margin:2px auto 10px;font-size:13px;line-height:1.5;text-align:center"></div>
     <div class="acts">
       <button class="btn btn-ink" onclick="savePhoto()">💾 บันทึกลงเครื่อง</button>
       <button class="btn btn-line" onclick="retake()">📷 ถ่ายใหม่</button>
@@ -2842,11 +2843,9 @@ function buildCamFrame(){
     `<div class="count-overlay" id="countOverlay"><div class="count-num" id="countNum">${timerSec}</div></div>`;
 }
 function updateCamUI(){
-  const done=photos.filter(Boolean).length>0;
   const pill=document.getElementById('camPill');
-  if(done){ pill.textContent='ถ่ายเสร็จแล้ว!'; return; }
   pill.textContent = selected.slots>1
-    ? `ถ่าย 1 ครั้ง · แบ่งเป็น ${selected.slots} รูป`
+    ? `แตะ 1 ครั้ง · ถ่ายอัตโนมัติ ${selected.slots} รูป`
     : 'แตะปุ่มเพื่อถ่าย';
 }
 function cycleTimer(){ timerSec = timerSec===3?5:(timerSec===5?10:3); document.getElementById('timerVal').textContent=timerSec; }
@@ -2870,18 +2869,24 @@ function flashScreen(){
   el.style.opacity='1'; setTimeout(()=>el.style.opacity='0',120);
 }
 
-// press ONCE -> one countdown, one shot, then fill every layer with it
+// press ONCE -> auto-shoot each layer in turn (countdown -> snap) until full
 let shooting=false;
 async function shoot(){
   if(shooting) return; shooting=true;
   const btn=document.getElementById('shutterBtn'); btn.style.pointerEvents='none'; btn.style.opacity='.5';
-  await countdownOnce(timerSec);
-  flashScreen();
-  captureOnce();
+  const n=selected.slots, pill=document.getElementById('camPill');
+  for(let i=0;i<n;i++){
+    pill.textContent = n>1 ? `กำลังถ่ายรูปที่ ${i+1} / ${n}` : 'กำลังถ่าย…';
+    await countdownOnce(timerSec);
+    flashScreen();
+    captureInto(i);                 // grab a fresh frame from the live preview
+    if(i<n-1) await wait(1100);     // pause so the subject can change pose
+  }
+  pill.textContent='ถ่ายครบแล้ว!';
   shooting=false; btn.style.pointerEvents=''; btn.style.opacity='';
   await wait(300); stopCamera(); go('review'); drawReview();
 }
-function captureOnce(){
+function captureInto(i){
   const video=document.querySelector('#camFrame video');
   const c=document.createElement('canvas'); c.width=400;c.height=500;
   const ctx=c.getContext('2d');
@@ -2891,20 +2896,12 @@ function captureOnce(){
     else{sw=video.videoWidth;sh=sw/cr;sx=0;sy=(video.videoHeight-sh)/2;}
     ctx.drawImage(video,sx,sy,sw,sh,0,0,c.width,c.height);
   }else{
-    ctx.fillStyle='#a7c8ff'; ctx.fillRect(0,0,c.width,c.height);
+    const cols=['#ffb3d1','#a7c8ff','#c5b3ff','#a7e8c4','#ffd59e','#ff9ec4'];
+    ctx.fillStyle=cols[i%cols.length]; ctx.fillRect(0,0,c.width,c.height);
     ctx.fillStyle='rgba(255,255,255,.85)';ctx.font='bold 120px Prompt';ctx.textAlign='center';
     ctx.fillText('☺',c.width/2,c.height/2+40);
   }
-  const url=c.toDataURL('image/jpeg',0.9);
-  // one shot → every layer of the layout gets the same photo
-  photos=new Array(selected.slots).fill(url);
-  const slot=document.querySelector('#camFrame .cam-slot');
-  if(slot){
-    const img=document.createElement('img');img.src=url;
-    slot.querySelector('video')?.remove(); slot.querySelector('.cam-placeholder')?.remove();
-    slot.appendChild(img); slot.classList.add('filled');
-  }
-  updateCamUI();
+  photos[i]=c.toDataURL('image/jpeg',0.9);   // keep the live preview running for the next shot
 }
 function stopCamera(){ if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;} }
 
@@ -2958,7 +2955,13 @@ async function startPrint(){
   if(!orderNo) newOrder();
   const digital = await buildStrip('digital');      // colored slip shown by the QR viewer
   lastStrip = await buildStrip('print');            // black-and-white version for the printer
-  uploadToGitHub(digital, orderNo).catch(e=>console.warn('upload:',e&&e.message)); // make the QR resolvable
+  setUpNote('⏳ กำลังอัปโหลดรูปขึ้นคลาวด์…','#8a90a6');
+  uploadToGitHub(digital, orderNo).then(r=>{           // make the QR resolvable
+    if(r&&r.skipped){ setUpNote('ℹ️ ยังไม่ได้ตั้งค่า Cloud (⚙︎) — QR จะยังโหลดรูปไม่ได้','#b26a00'); return; }
+    setUpNote('✅ อัปโหลดรูปแล้ว — สแกน QR โหลดรูปได้เลย','#1a7f37');
+  }).catch(e=>{
+    setUpNote('⚠️ อัปโหลดรูปไม่สำเร็จ: '+(e&&e.message?e.message:e)+'\n(ตรวจ Token / สิทธิ์ contents:write / ชื่อ repo)','#b3261e');
+  });
   if(isNative()){
     const stop=animateBar(90,2500);
     try{
@@ -2986,6 +2989,7 @@ function spawnConfetti(host){
 }
 
 /* ---------------- done · QR + save ---------------- */
+function setUpNote(msg,col){ const el=document.getElementById('upNote'); if(el){ el.textContent=msg; el.style.color=col||'#8a90a6'; el.style.whiteSpace='pre-line'; } }
 function makeQR(){
   const cv=document.getElementById('qr'); const ctx=cv.getContext('2d');
   if(!orderNo) newOrder();
