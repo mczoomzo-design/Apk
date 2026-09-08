@@ -1,0 +1,1152 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- ARTIFACT-CONTENT-START -->
+<title>ผู้ช่วยครู AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@500;600;700&family=Sarabun:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#FBF8F2; --surface:#FFFFFF; --surface-2:#F4EEE1; --surface-3:#EDE5D4;
+    --ink:#1E2A2E; --ink-soft:#586268; --ink-faint:#8A9299;
+    --line:#E5DDCC; --line-strong:#D6CCB6;
+    --primary:#0F766E; --primary-strong:#0B564F; --primary-tint:#DCEEEB;
+    --accent:#D99400; --accent-tint:#F8ECCF;
+    --good:#2E7D5B; --good-tint:#DDEFE5;
+    --warn:#B9740F; --warn-tint:#F7E8D0;
+    --bad:#BC3B2E; --bad-tint:#F6DFDA;
+    --shadow:0 1px 2px rgba(30,42,46,.06), 0 8px 24px -14px rgba(30,42,46,.22);
+    --radius:14px; --radius-sm:9px;
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+    --sans:'Sarabun',system-ui,-apple-system,'Segoe UI',sans-serif;
+    --display:'Kanit','Sarabun',system-ui,sans-serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#11171A; --surface:#1A2226; --surface-2:#212B30; --surface-3:#28353A;
+      --ink:#EAECE4; --ink-soft:#A2ADB1; --ink-faint:#75818A;
+      --line:#2B383D; --line-strong:#3A4A50;
+      --primary:#4FD1C5; --primary-strong:#7BE3D9; --primary-tint:#153A38;
+      --accent:#F0C14B; --accent-tint:#3A3016;
+      --good:#57C08D; --good-tint:#173628;
+      --warn:#E0A64B; --warn-tint:#3A2C13;
+      --bad:#E17868; --bad-tint:#3A211D;
+      --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px -16px rgba(0,0,0,.7);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#11171A; --surface:#1A2226; --surface-2:#212B30; --surface-3:#28353A;
+    --ink:#EAECE4; --ink-soft:#A2ADB1; --ink-faint:#75818A;
+    --line:#2B383D; --line-strong:#3A4A50;
+    --primary:#4FD1C5; --primary-strong:#7BE3D9; --primary-tint:#153A38;
+    --accent:#F0C14B; --accent-tint:#3A3016;
+    --good:#57C08D; --good-tint:#173628;
+    --warn:#E0A64B; --warn-tint:#3A2C13;
+    --bad:#E17868; --bad-tint:#3A211D;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px -16px rgba(0,0,0,.7);
+  }
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+    font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  h1,h2,h3,h4{font-family:var(--display);font-weight:600;line-height:1.25;margin:0;text-wrap:balance}
+  a{color:var(--primary)}
+  button{font-family:inherit}
+  ::selection{background:var(--primary-tint)}
+
+  .wrap{max-width:1080px;margin:0 auto;padding:0 18px}
+
+  /* Header */
+  header.top{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 88%, transparent);
+    backdrop-filter:saturate(1.4) blur(10px);border-bottom:1px solid var(--line)}
+  .top-inner{display:flex;align-items:center;gap:14px;padding:12px 0}
+  .brand{display:flex;align-items:center;gap:11px;min-width:0}
+  .logo{width:40px;height:40px;border-radius:11px;flex:0 0 auto;display:grid;place-items:center;
+    background:linear-gradient(150deg,var(--primary),var(--primary-strong));color:#fff;
+    font-family:var(--display);font-weight:700;font-size:20px;box-shadow:var(--shadow)}
+  .brand .t1{font-family:var(--display);font-weight:700;font-size:19px;letter-spacing:.2px;line-height:1.1}
+  .brand .t2{font-size:12.5px;color:var(--ink-soft);letter-spacing:.2px}
+  .top-spacer{flex:1}
+  .ai-chip{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;
+    padding:6px 11px;border-radius:999px;border:1px solid var(--line-strong);background:var(--surface);
+    color:var(--ink-soft);white-space:nowrap}
+  .ai-dot{width:8px;height:8px;border-radius:50%;background:var(--ink-faint)}
+  .ai-chip.ready .ai-dot{background:var(--good);box-shadow:0 0 0 3px var(--good-tint)}
+  .ai-chip.off .ai-dot{background:var(--warn)}
+  .icon-btn{width:38px;height:38px;border-radius:10px;border:1px solid var(--line-strong);
+    background:var(--surface);color:var(--ink);cursor:pointer;font-size:17px;display:grid;place-items:center}
+  .icon-btn:hover{border-color:var(--primary);color:var(--primary)}
+
+  /* Nav tabs */
+  nav.tabs{position:sticky;top:65px;z-index:15;background:color-mix(in srgb,var(--bg) 88%, transparent);
+    backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+  .tabs-inner{display:flex;gap:4px;overflow-x:auto;padding:8px 0;scrollbar-width:thin}
+  .tabs-inner::-webkit-scrollbar{height:6px}
+  .tab{flex:0 0 auto;display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:999px;
+    border:1px solid transparent;background:transparent;color:var(--ink-soft);cursor:pointer;
+    font-size:14.5px;font-weight:600;white-space:nowrap;transition:.12s}
+  .tab .em{font-size:16px}
+  .tab:hover{background:var(--surface-2);color:var(--ink)}
+  .tab.active{background:var(--primary);color:#fff;border-color:var(--primary);box-shadow:var(--shadow)}
+  .tab.active:hover{background:var(--primary-strong)}
+
+  main{padding:26px 0 70px}
+  .intro{margin-bottom:22px}
+  .intro h2{font-size:clamp(22px,3.4vw,30px);margin-bottom:6px}
+  .intro p{color:var(--ink-soft);max-width:62ch;margin:0}
+
+  .tool{display:none;animation:fade .25s ease}
+  .tool.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  .tool-head{display:flex;align-items:flex-start;gap:14px;margin-bottom:18px}
+  .tool-head .badge{width:46px;height:46px;border-radius:12px;flex:0 0 auto;display:grid;place-items:center;
+    font-size:23px;background:var(--surface-2);border:1px solid var(--line)}
+  .tool-head h3{font-size:21px}
+  .tool-head p{margin:2px 0 0;color:var(--ink-soft);font-size:14.5px}
+
+  .grid{display:grid;grid-template-columns:minmax(0,410px) minmax(0,1fr);gap:22px;align-items:start}
+  @media (max-width:820px){.grid{grid-template-columns:1fr}}
+
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    padding:18px;box-shadow:var(--shadow)}
+  .card.pad-lg{padding:20px}
+  .panel-title{font-family:var(--display);font-weight:600;font-size:13px;letter-spacing:.6px;
+    text-transform:uppercase;color:var(--ink-faint);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+
+  .field{margin-bottom:14px}
+  .field:last-child{margin-bottom:0}
+  label.lbl{display:block;font-size:13.5px;font-weight:600;color:var(--ink-soft);margin-bottom:6px}
+  label.lbl .req{color:var(--bad);font-weight:700}
+  .hint{font-size:12px;color:var(--ink-faint);font-weight:400;margin-top:4px}
+  input[type=text],input[type=number],select,textarea{
+    width:100%;padding:10px 12px;border:1px solid var(--line-strong);border-radius:var(--radius-sm);
+    background:var(--surface);color:var(--ink);font-family:inherit;font-size:15px;transition:.12s}
+  textarea{resize:vertical;min-height:96px;line-height:1.55}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary);
+    box-shadow:0 0 0 3px var(--primary-tint)}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .row2.g3{grid-template-columns:1fr 1fr 1fr}
+  @media(max-width:480px){.row2,.row2.g3{grid-template-columns:1fr}}
+
+  .chips{display:flex;flex-wrap:wrap;gap:7px}
+  .chip-opt{padding:7px 12px;border:1px solid var(--line-strong);border-radius:999px;background:var(--surface);
+    color:var(--ink-soft);font-size:13.5px;font-weight:600;cursor:pointer;transition:.12s}
+  .chip-opt:hover{border-color:var(--primary)}
+  .chip-opt.on{background:var(--primary-tint);border-color:var(--primary);color:var(--primary-strong)}
+
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 18px;border-radius:10px;
+    border:1px solid transparent;font-size:15px;font-weight:600;cursor:pointer;transition:.12s;font-family:inherit}
+  .btn-primary{background:var(--primary);color:#fff;box-shadow:var(--shadow)}
+  .btn-primary:hover{background:var(--primary-strong)}
+  .btn-primary:disabled{opacity:.55;cursor:not-allowed}
+  .btn-ghost{background:var(--surface);color:var(--ink);border-color:var(--line-strong)}
+  .btn-ghost:hover{border-color:var(--primary);color:var(--primary)}
+  .btn-sm{padding:7px 12px;font-size:13.5px;border-radius:8px}
+  .btn-danger{background:var(--surface);color:var(--bad);border-color:var(--line-strong)}
+  .btn-danger:hover{border-color:var(--bad);background:var(--bad-tint)}
+  .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+
+  /* Output */
+  .out-card{min-height:220px;display:flex;flex-direction:column}
+  .out-bar{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+  .out-bar .panel-title{margin:0;flex:1}
+  .out-body{flex:1}
+  .placeholder{color:var(--ink-faint);text-align:center;padding:34px 10px}
+  .placeholder .big{font-size:34px;display:block;margin-bottom:10px;opacity:.7}
+  .thinking{display:flex;align-items:center;gap:11px;color:var(--primary-strong);font-weight:600;padding:12px 2px}
+  .dots{display:inline-flex;gap:4px}
+  .dots i{width:7px;height:7px;border-radius:50%;background:var(--primary);animation:bounce 1.1s infinite}
+  .dots i:nth-child(2){animation-delay:.18s}.dots i:nth-child(3){animation-delay:.36s}
+  @keyframes bounce{0%,80%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-6px);opacity:1}}
+
+  .md{font-size:15.5px}
+  .md h1,.md h2,.md h3{font-family:var(--display);margin:18px 0 8px}
+  .md h1{font-size:21px}.md h2{font-size:18px}.md h3{font-size:16px;color:var(--primary-strong)}
+  .md h1:first-child,.md h2:first-child,.md h3:first-child{margin-top:0}
+  .md p{margin:8px 0}
+  .md ul,.md ol{margin:8px 0;padding-left:22px}
+  .md li{margin:3px 0}
+  .md strong{font-weight:700;color:var(--ink)}
+  .md code{font-family:var(--mono);font-size:13.5px;background:var(--surface-2);padding:1px 6px;border-radius:5px}
+  .md hr{border:none;border-top:1px solid var(--line);margin:14px 0}
+  .md blockquote{margin:10px 0;padding:6px 14px;border-left:3px solid var(--accent);
+    background:var(--accent-tint);border-radius:0 8px 8px 0;color:var(--ink)}
+  .md .tbl-scroll{overflow-x:auto;margin:12px 0}
+  .md table{border-collapse:collapse;width:100%;font-size:14px;min-width:340px}
+  .md th,.md td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+  .md th{background:var(--surface-2);font-weight:600}
+
+  .note-box{padding:11px 14px;border-radius:10px;font-size:14px;display:flex;gap:9px;align-items:flex-start}
+  .note-box.warn{background:var(--warn-tint);color:var(--warn)}
+  .note-box.err{background:var(--bad-tint);color:var(--bad)}
+  .note-box.info{background:var(--primary-tint);color:var(--primary-strong)}
+  .note-box .ic{font-size:16px;line-height:1.4}
+  .cancelled-note{margin-top:10px;font-size:13px;color:var(--ink-faint);font-style:italic}
+
+  .example-tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;
+    color:var(--accent);background:var(--accent-tint);padding:2px 8px;border-radius:6px;margin-left:8px}
+
+  /* Score table */
+  .score-toolbar{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin-bottom:14px}
+  .score-toolbar .spacer{flex:1}
+  .tbl-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}
+  table.score{border-collapse:collapse;width:100%;font-size:14.5px}
+  table.score th,table.score td{border-bottom:1px solid var(--line);border-right:1px solid var(--line);
+    padding:0;text-align:center;white-space:nowrap}
+  table.score th{background:var(--surface-2);font-family:var(--display);font-weight:600;font-size:13px;
+    padding:9px 10px;position:relative}
+  table.score thead th:first-child,table.score tbody td:first-child{position:sticky;left:0;z-index:2}
+  table.score thead th:first-child{background:var(--surface-3);z-index:3}
+  table.score tbody td:first-child{background:var(--surface);text-align:left}
+  table.score td input{width:100%;border:none;background:transparent;text-align:center;padding:9px 6px;
+    font-family:var(--mono);font-size:14px;color:var(--ink)}
+  table.score td.namecell input{text-align:left;font-family:var(--sans);padding-left:12px;font-weight:500}
+  table.score td input:focus{outline:2px solid var(--primary);outline-offset:-2px;border-radius:4px}
+  table.score td.calc{font-family:var(--mono);font-weight:600;font-variant-numeric:tabular-nums;padding:9px 10px;background:var(--surface-2)}
+  table.score .gradecell{font-family:var(--display);font-weight:700}
+  table.score tbody tr:hover td{background:var(--surface-2)}
+  table.score tbody tr:hover td:first-child{background:var(--surface-2)}
+  .colhead{display:flex;flex-direction:column;gap:2px;align-items:center}
+  .colhead .maxin{width:52px;border:1px solid var(--line-strong);border-radius:6px;background:var(--surface);
+    text-align:center;font-family:var(--mono);font-size:12px;padding:2px}
+  .col-del{position:absolute;top:3px;right:3px;width:18px;height:18px;border-radius:5px;border:none;
+    background:transparent;color:var(--ink-faint);cursor:pointer;font-size:13px;line-height:1}
+  .col-del:hover{background:var(--bad-tint);color:var(--bad)}
+  .rowdel{width:26px;height:26px;border-radius:6px;border:1px solid transparent;background:transparent;
+    color:var(--ink-faint);cursor:pointer}
+  .rowdel:hover{background:var(--bad-tint);color:var(--bad);border-color:var(--bad)}
+
+  .grade-badge{display:inline-block;min-width:34px;padding:2px 8px;border-radius:7px;font-weight:700;
+    font-family:var(--display);font-size:13.5px}
+  .g-hi{background:var(--good-tint);color:var(--good)}
+  .g-mid{background:var(--primary-tint);color:var(--primary-strong)}
+  .g-low{background:var(--warn-tint);color:var(--warn)}
+  .g-fail{background:var(--bad-tint);color:var(--bad)}
+
+  .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-top:16px}
+  .stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-sm);padding:13px 15px}
+  .stat .k{font-size:12px;color:var(--ink-faint);font-weight:600;letter-spacing:.3px}
+  .stat .v{font-family:var(--mono);font-weight:600;font-size:22px;font-variant-numeric:tabular-nums;margin-top:3px}
+  .stat.accent .v{color:var(--primary-strong)}
+
+  .dist{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+  .dist .d{flex:1 1 70px;text-align:center;border:1px solid var(--line);border-radius:9px;padding:9px 6px;background:var(--surface)}
+  .dist .d .gd{font-family:var(--display);font-weight:700;font-size:15px}
+  .dist .d .ct{font-family:var(--mono);font-size:19px;font-weight:600;margin-top:2px}
+  .dist .d .bar{height:5px;border-radius:3px;background:var(--primary);margin-top:7px;min-width:3px}
+
+  details.settings{margin-top:16px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);overflow:hidden}
+  details.settings summary{cursor:pointer;padding:13px 16px;font-weight:600;font-family:var(--display);
+    list-style:none;display:flex;align-items:center;gap:8px;color:var(--ink)}
+  details.settings summary::-webkit-details-marker{display:none}
+  details.settings summary .caret{margin-left:auto;transition:.2s;color:var(--ink-faint)}
+  details.settings[open] summary .caret{transform:rotate(180deg)}
+  .settings-body{padding:0 16px 16px;border-top:1px solid var(--line)}
+  .grade-rules{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:12px}
+  .grade-rules .gr{display:flex;align-items:center;gap:7px;font-size:14px}
+  .grade-rules .gr input{width:66px;font-family:var(--mono);text-align:center}
+  .grade-rules .gr .g{font-family:var(--display);font-weight:700;min-width:30px}
+
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);opacity:0;
+    background:var(--ink);color:var(--bg);padding:11px 20px;border-radius:999px;font-weight:600;font-size:14px;
+    box-shadow:var(--shadow);z-index:50;transition:.25s;pointer-events:none}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  footer{border-top:1px solid var(--line);color:var(--ink-faint);font-size:13px;text-align:center;padding:22px 0 34px}
+  footer strong{color:var(--ink-soft)}
+
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+<!-- ARTIFACT-CONTENT-BODY -->
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap top-inner">
+    <div class="brand">
+      <div class="logo">ค</div>
+      <div>
+        <div class="t1">ผู้ช่วยครู <span style="color:var(--accent)">AI</span></div>
+        <div class="t2">วางแผน · วิจัย · ตรวจงาน · ออกข้อสอบ · ตัดเกรด · สรุป</div>
+      </div>
+    </div>
+    <div class="top-spacer"></div>
+    <span id="aiChip" class="ai-chip"><span class="ai-dot"></span><span id="aiChipText">กำลังเชื่อมต่อ AI…</span></span>
+    <button class="icon-btn" id="themeBtn" title="สลับโหมดสว่าง/มืด" aria-label="สลับธีม">◐</button>
+  </div>
+</header>
+
+<nav class="tabs">
+  <div class="wrap tabs-inner" id="tabBar"></div>
+</nav>
+
+<main>
+  <div class="wrap">
+    <div class="intro">
+      <h2 id="introTitle">สวัสดีครับคุณครู 👋</h2>
+      <p id="introText">เลือกเครื่องมือด้านบนได้เลย — ผมช่วยร่างแผนการสอน ออกแบบงานวิจัยในชั้นเรียน ตรวจงานพร้อมให้ข้อเสนอแนะ ออกใบงาน/ข้อสอบ ตัดเกรดและวิเคราะห์คะแนน รวมถึงสรุปเนื้อหาบทเรียนให้ครับ</p>
+    </div>
+
+    <!-- ============ 1. LESSON PLAN ============ -->
+    <section class="tool active" data-tool="plan">
+      <div class="tool-head">
+        <div class="badge">📚</div>
+        <div><h3>ช่วยคิดแผนการสอน</h3>
+          <p>ร่างแผนการจัดการเรียนรู้ครบตามรูปแบบ พร้อมจุดประสงค์ กิจกรรม สื่อ และการวัดผล</p></div>
+      </div>
+      <div class="grid">
+        <div class="card">
+          <div class="panel-title">📝 รายละเอียดบทเรียน <span class="example-tag">ตัวอย่าง</span></div>
+          <div class="row2">
+            <div class="field"><label class="lbl">วิชา <span class="req">*</span></label>
+              <input type="text" id="pl-subject" value="วิทยาศาสตร์"></div>
+            <div class="field"><label class="lbl">ระดับชั้น</label>
+              <input type="text" id="pl-level" value="มัธยมศึกษาปีที่ 2"></div>
+          </div>
+          <div class="field"><label class="lbl">หัวข้อ / เนื้อหา <span class="req">*</span></label>
+            <input type="text" id="pl-topic" value="ระบบสุริยะและดาวเคราะห์"></div>
+          <div class="row2">
+            <div class="field"><label class="lbl">จำนวนคาบ / เวลา</label>
+              <input type="text" id="pl-time" value="2 คาบ (100 นาที)"></div>
+            <div class="field"><label class="lbl">รูปแบบการสอน</label>
+              <select id="pl-style">
+                <option>Active Learning</option>
+                <option>สืบเสาะหาความรู้ (5E)</option>
+                <option>โครงงานเป็นฐาน (PBL)</option>
+                <option>ร่วมมือ (Cooperative)</option>
+                <option>บรรยาย + สาธิต</option>
+                <option>เกมและกิจกรรม</option>
+              </select></div>
+          </div>
+          <div class="field"><label class="lbl">จุดประสงค์ / สิ่งที่อยากเน้น <span class="hint" style="display:inline">(ถ้ามี)</span></label>
+            <textarea id="pl-goal" placeholder="เช่น อยากให้นักเรียนอธิบายลำดับดาวเคราะห์และทำงานกลุ่มได้">อยากให้นักเรียนอธิบายองค์ประกอบของระบบสุริยะและเปรียบเทียบดาวเคราะห์แต่ละดวงได้</textarea></div>
+          <div class="actions">
+            <button class="btn btn-primary" data-run="plan">✨ สร้างแผนการสอน</button>
+            <button class="btn btn-ghost" data-stop="plan" hidden>■ หยุด</button>
+          </div>
+        </div>
+        <div class="card out-card">
+          <div class="out-bar"><div class="panel-title">📄 แผนการสอน</div>
+            <button class="btn btn-ghost btn-sm" data-copy="plan">คัดลอก</button></div>
+          <div class="out-body" data-out="plan"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 2. RESEARCH ============ -->
+    <section class="tool" data-tool="research">
+      <div class="tool-head">
+        <div class="badge">🔬</div>
+        <div><h3>ช่วยคิดงานวิจัย</h3>
+          <p>เสนอหัวข้อ ตั้งคำถามวิจัย วัตถุประสงค์ กรอบแนวคิด และระเบียบวิธี — เน้นวิจัยในชั้นเรียน</p></div>
+      </div>
+      <div class="grid">
+        <div class="card">
+          <div class="panel-title">🔎 โจทย์ที่สนใจ <span class="example-tag">ตัวอย่าง</span></div>
+          <div class="field"><label class="lbl">ปัญหา / ประเด็นที่พบในการสอน <span class="req">*</span></label>
+            <textarea id="rs-problem" placeholder="เช่น นักเรียนขาดแรงจูงใจในการเรียนคณิตศาสตร์">นักเรียนชั้น ม.2 ขาดแรงจูงใจและมีผลสัมฤทธิ์ต่ำในการเรียนคณิตศาสตร์เรื่องสมการ</textarea></div>
+          <div class="row2">
+            <div class="field"><label class="lbl">วิชา / สาขา</label>
+              <input type="text" id="rs-subject" value="คณิตศาสตร์"></div>
+            <div class="field"><label class="lbl">ประเภทงานวิจัย</label>
+              <select id="rs-type">
+                <option>วิจัยในชั้นเรียน (Classroom Action Research)</option>
+                <option>วิจัยเชิงทดลอง</option>
+                <option>วิจัยเชิงสำรวจ</option>
+                <option>วิจัยและพัฒนา (R&D)</option>
+                <option>วิทยานิพนธ์ / งานวิจัยฉบับเต็ม</option>
+              </select></div>
+          </div>
+          <div class="field"><label class="lbl">สิ่งที่อยากได้จาก AI</label>
+            <div class="chips" data-chips="rs-want">
+              <button type="button" class="chip-opt on" data-v="เสนอหัวข้อวิจัย 5 หัวข้อ">หัวข้อ 5 เรื่อง</button>
+              <button type="button" class="chip-opt on" data-v="โครงร่างวิจัยของหัวข้อที่เหมาะที่สุด">โครงร่างฉบับเต็ม</button>
+              <button type="button" class="chip-opt" data-v="แนะนำนวัตกรรม/วิธีสอนที่ใช้แก้ปัญหา">แนะนำนวัตกรรม</button>
+            </div></div>
+          <div class="actions">
+            <button class="btn btn-primary" data-run="research">✨ ช่วยคิดวิจัย</button>
+            <button class="btn btn-ghost" data-stop="research" hidden>■ หยุด</button>
+          </div>
+        </div>
+        <div class="card out-card">
+          <div class="out-bar"><div class="panel-title">📄 ข้อเสนอโครงร่างวิจัย</div>
+            <button class="btn btn-ghost btn-sm" data-copy="research">คัดลอก</button></div>
+          <div class="out-body" data-out="research"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 3. GRADE WORK ============ -->
+    <section class="tool" data-tool="grade">
+      <div class="tool-head">
+        <div class="badge">✅</div>
+        <div><h3>ช่วยตรวจงาน</h3>
+          <p>ให้คะแนนตามเกณฑ์ ระบุจุดเด่น จุดที่ควรปรับปรุง และข้อเสนอแนะเชิงสร้างสรรค์</p></div>
+      </div>
+      <div class="grid">
+        <div class="card">
+          <div class="panel-title">📥 งานที่จะตรวจ</div>
+          <div class="row2">
+            <div class="field"><label class="lbl">วิชา / ประเภทงาน</label>
+              <input type="text" id="gr-subject" value="ภาษาไทย — เรียงความ"></div>
+            <div class="field"><label class="lbl">คะแนนเต็ม</label>
+              <input type="number" id="gr-max" value="10" min="1"></div>
+          </div>
+          <div class="field"><label class="lbl">โจทย์ / เกณฑ์การให้คะแนน <span class="req">*</span></label>
+            <textarea id="gr-rubric" placeholder="วางโจทย์และเกณฑ์ เช่น เนื้อหา 4 / การใช้ภาษา 3 / ความคิดสร้างสรรค์ 3">หัวข้อ: "วันที่ฉันประทับใจ" เกณฑ์: เนื้อหาและใจความ 4 คะแนน / การใช้ภาษาและการสะกดคำ 3 คะแนน / การเรียบเรียงและความคิดสร้างสรรค์ 3 คะแนน</textarea></div>
+          <div class="field"><label class="lbl">งานของนักเรียน <span class="req">*</span></label>
+            <textarea id="gr-work" style="min-height:130px" placeholder="วางข้อความงานของนักเรียนที่นี่">วันที่ฉันประทับใจที่สุดคือวันที่ไปเที่ยวทะเลกับครอบครัว เช้าวันนั้นอากาศดีมาก เราขับรถออกจากบ้านแต่เช้า ฉันตื่นเต้นมากเพราะไม่ได้ไปทะเลนานแล้ว พอถึงทะเลฉันวิ่งลงไปเล่นน้ำทันที น้ำเย็นสบาย พ่อกับแม่นั่งดูอยู่ริมหาด เราเล่นทรายสร้างปราสาทด้วยกัน ตอนเย็นเรากินอาหารทะเลอร่อยมาก ฉันมีความสุขมากและอยากไปอีก</textarea></div>
+          <div class="field"><label class="lbl">ระดับความเข้มของการตรวจ</label>
+            <div class="chips" data-chips="gr-tone" data-single="1">
+              <button type="button" class="chip-opt on" data-v="ให้กำลังใจและอ่อนโยน เหมาะกับการสร้างแรงจูงใจ">อ่อนโยน</button>
+              <button type="button" class="chip-opt" data-v="สมดุล ตรงไปตรงมาแต่สุภาพ">สมดุล</button>
+              <button type="button" class="chip-opt" data-v="เข้มงวดตามหลักวิชาการ ละเอียดทุกจุด">เข้มงวด</button>
+            </div></div>
+          <div class="actions">
+            <button class="btn btn-primary" data-run="grade">✨ ตรวจและให้คะแนน</button>
+            <button class="btn btn-ghost" data-stop="grade" hidden>■ หยุด</button>
+          </div>
+        </div>
+        <div class="card out-card">
+          <div class="out-bar"><div class="panel-title">📄 ผลการตรวจและข้อเสนอแนะ</div>
+            <button class="btn btn-ghost btn-sm" data-copy="grade">คัดลอก</button></div>
+          <div class="out-body" data-out="grade"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 4. CREATE WORK / EXAM ============ -->
+    <section class="tool" data-tool="create">
+      <div class="tool-head">
+        <div class="badge">✏️</div>
+        <div><h3>ช่วยออกใบงาน / ข้อสอบ</h3>
+          <p>สร้างข้อสอบและใบงานตามระดับ Bloom พร้อมเฉลยและเกณฑ์การให้คะแนน</p></div>
+      </div>
+      <div class="grid">
+        <div class="card">
+          <div class="panel-title">🎯 กำหนดโจทย์ <span class="example-tag">ตัวอย่าง</span></div>
+          <div class="row2">
+            <div class="field"><label class="lbl">วิชา <span class="req">*</span></label>
+              <input type="text" id="cr-subject" value="สังคมศึกษา"></div>
+            <div class="field"><label class="lbl">ระดับชั้น</label>
+              <input type="text" id="cr-level" value="มัธยมศึกษาปีที่ 3"></div>
+          </div>
+          <div class="field"><label class="lbl">หัวข้อ / เนื้อหา <span class="req">*</span></label>
+            <input type="text" id="cr-topic" value="ระบอบประชาธิปไตยและการเลือกตั้ง"></div>
+          <div class="row2 g3">
+            <div class="field"><label class="lbl">ประเภท</label>
+              <select id="cr-type">
+                <option>ข้อสอบปรนัย (4 ตัวเลือก)</option>
+                <option>ข้อสอบอัตนัย</option>
+                <option>ผสม ปรนัย+อัตนัย</option>
+                <option>ใบงาน / กิจกรรม</option>
+                <option>คำถามอภิปราย</option>
+              </select></div>
+            <div class="field"><label class="lbl">จำนวนข้อ</label>
+              <input type="number" id="cr-count" value="5" min="1" max="30"></div>
+            <div class="field"><label class="lbl">ระดับความยาก</label>
+              <select id="cr-diff">
+                <option>ง่าย (จำ/เข้าใจ)</option>
+                <option selected>ปานกลาง (นำไปใช้/วิเคราะห์)</option>
+                <option>ยาก (ประเมินค่า/สร้างสรรค์)</option>
+                <option>คละระดับตาม Bloom</option>
+              </select></div>
+          </div>
+          <div class="field"><label class="lbl">เงื่อนไขเพิ่มเติม <span class="hint" style="display:inline">(ถ้ามี)</span></label>
+            <input type="text" id="cr-extra" placeholder="เช่น อิงสถานการณ์จริง มีภาพประกอบ ให้เฉลยละเอียด"></div>
+          <label class="lbl" style="display:flex;align-items:center;gap:9px;cursor:pointer;margin-top:4px">
+            <input type="checkbox" id="cr-answer" checked style="width:auto"> แนบเฉลยและเกณฑ์การให้คะแนน</label>
+          <div class="actions">
+            <button class="btn btn-primary" data-run="create">✨ ออกข้อสอบ</button>
+            <button class="btn btn-ghost" data-stop="create" hidden>■ หยุด</button>
+          </div>
+        </div>
+        <div class="card out-card">
+          <div class="out-bar"><div class="panel-title">📄 ข้อสอบ / ใบงาน</div>
+            <button class="btn btn-ghost btn-sm" data-copy="create">คัดลอก</button></div>
+          <div class="out-body" data-out="create"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 5. SCORES ============ -->
+    <section class="tool" data-tool="scores">
+      <div class="tool-head">
+        <div class="badge">📊</div>
+        <div><h3>ประมวลผลและตัดเกรด</h3>
+          <p>กรอกคะแนน คำนวณร้อยละ ตัดเกรดอัตโนมัติ และดูสถิติทั้งห้องเรียน — คำนวณในเครื่อง ใช้ได้แม้ไม่มี AI</p></div>
+      </div>
+
+      <div class="card pad-lg">
+        <div class="score-toolbar">
+          <button class="btn btn-ghost btn-sm" id="sc-add-student">＋ เพิ่มนักเรียน</button>
+          <button class="btn btn-ghost btn-sm" id="sc-add-col">＋ เพิ่มช่องคะแนน</button>
+          <button class="btn btn-ghost btn-sm" id="sc-paste">📋 วางจาก Excel</button>
+          <div class="spacer"></div>
+          <button class="btn btn-ghost btn-sm" id="sc-copy-csv">คัดลอกเป็น CSV</button>
+          <button class="btn btn-danger btn-sm" id="sc-clear">ล้างข้อมูล</button>
+        </div>
+
+        <div class="tbl-scroll">
+          <table class="score" id="scoreTable"></table>
+        </div>
+
+        <div class="stats-grid" id="scoreStats"></div>
+        <div class="dist" id="scoreDist"></div>
+
+        <details class="settings">
+          <summary>⚙️ ตั้งค่าเกณฑ์การตัดเกรด <span class="caret">▾</span></summary>
+          <div class="settings-body">
+            <p class="hint" style="margin-top:12px">ตัดเกรดแบบอิงเกณฑ์จาก <strong>ร้อยละ</strong> ของคะแนนรวม — แก้ค่าขั้นต่ำของแต่ละเกรดได้</p>
+            <div class="grade-rules" id="gradeRules"></div>
+          </div>
+        </details>
+
+        <div class="actions" style="margin-top:18px">
+          <button class="btn btn-primary" data-run="scores">✨ ให้ AI วิเคราะห์ผลทั้งห้อง</button>
+          <button class="btn btn-ghost" data-stop="scores" hidden>■ หยุด</button>
+        </div>
+        <div class="out-body" data-out="scores" style="margin-top:14px"></div>
+      </div>
+    </section>
+
+    <!-- ============ 6. SUMMARY ============ -->
+    <section class="tool" data-tool="summary">
+      <div class="tool-head">
+        <div class="badge">📝</div>
+        <div><h3>ช่วยสรุปการสอน</h3>
+          <p>สรุปสาระสำคัญของบทเรียน ทำผังความคิดแบบข้อความ คำถามทบทวน และบันทึกหลังสอน</p></div>
+      </div>
+      <div class="grid">
+        <div class="card">
+          <div class="panel-title">📥 เนื้อหาที่จะสรุป <span class="example-tag">ตัวอย่าง</span></div>
+          <div class="field"><label class="lbl">รูปแบบผลลัพธ์</label>
+            <div class="chips" data-chips="sm-mode" data-single="1">
+              <button type="button" class="chip-opt on" data-v="สรุปเนื้อหาบทเรียนให้นักเรียนทบทวน (สาระสำคัญ + ผังความคิดแบบข้อความ + คำถามทบทวน 5 ข้อ)">สรุปให้นักเรียน</button>
+              <button type="button" class="chip-opt" data-v="เขียนบันทึกหลังสอน (สิ่งที่ได้ผล ปัญหาที่พบ แนวทางปรับปรุง) จากบันทึกของครู">บันทึกหลังสอน</button>
+              <button type="button" class="chip-opt" data-v="สรุปสั้นกระชับเป็นหัวข้อ (bullet) สำหรับทำสไลด์">หัวข้อทำสไลด์</button>
+            </div></div>
+          <div class="field"><label class="lbl">เนื้อหา / บันทึก <span class="req">*</span></label>
+            <textarea id="sm-text" style="min-height:200px" placeholder="วางเนื้อหาบทเรียน บันทึกหลังสอน หรือข้อความยาว ๆ ที่ต้องการสรุป">วันนี้สอนเรื่องการสังเคราะห์ด้วยแสง นักเรียนได้เรียนรู้ว่าพืชสร้างอาหารเองได้โดยใช้แสงแดด คลอโรฟิลล์ น้ำ และแก๊สคาร์บอนไดออกไซด์ ผลิตเป็นน้ำตาลกลูโคสและปล่อยแก๊สออกซิเจน กระบวนการเกิดที่คลอโรพลาสต์ในใบ ปัจจัยที่มีผลได้แก่ ความเข้มแสง อุณหภูมิ และปริมาณคาร์บอนไดออกไซด์ ครูให้นักเรียนทำการทดลองนำใบไม้มาต้มในแอลกอฮอล์แล้วหยดไอโอดีนเพื่อทดสอบแป้ง นักเรียนส่วนใหญ่เข้าใจดี แต่บางคนยังสับสนระหว่างสารตั้งต้นกับผลผลิต</textarea></div>
+          <div class="actions">
+            <button class="btn btn-primary" data-run="summary">✨ สรุปให้</button>
+            <button class="btn btn-ghost" data-stop="summary" hidden>■ หยุด</button>
+          </div>
+        </div>
+        <div class="card out-card">
+          <div class="out-bar"><div class="panel-title">📄 ผลสรุป</div>
+            <button class="btn btn-ghost btn-sm" data-copy="summary">คัดลอก</button></div>
+          <div class="out-body" data-out="summary"></div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<footer class="wrap">
+  <p><strong>ผู้ช่วยครู AI</strong> — เครื่องมือช่วยงานครู ขับเคลื่อนด้วย Claude<br>
+  ⚠️ ผลลัพธ์จาก AI เป็นตัวช่วยร่างเบื้องต้น โปรดตรวจทานและปรับให้เหมาะกับบริบทห้องเรียนก่อนใช้จริง</p>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+/* ============================================================
+   ผู้ช่วยครู AI — logic
+   ============================================================ */
+
+/* ---------- tiny helpers ---------- */
+const $  = (s, r=document)=>r.querySelector(s);
+const $$ = (s, r=document)=>Array.from(r.querySelectorAll(s));
+const esc = s => String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+let toastTimer;
+function toast(msg){
+  const t=$('#toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),1900);
+}
+
+/* ---------- theme ---------- */
+(function(){
+  const KEY='teacher-ai-theme';
+  let saved=null; try{saved=localStorage.getItem(KEY);}catch(e){}
+  if(saved) document.documentElement.setAttribute('data-theme',saved);
+  $('#themeBtn').addEventListener('click',()=>{
+    const cur=document.documentElement.getAttribute('data-theme');
+    const isDark = cur ? cur==='dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    const next=isDark?'light':'dark';
+    document.documentElement.setAttribute('data-theme',next);
+    try{localStorage.setItem(KEY,next);}catch(e){}
+  });
+})();
+
+/* ---------- tabs ---------- */
+const TABS=[
+  {id:'plan',    em:'📚', label:'แผนการสอน'},
+  {id:'research',em:'🔬', label:'งานวิจัย'},
+  {id:'grade',   em:'✅', label:'ตรวจงาน'},
+  {id:'create',  em:'✏️', label:'ออกข้อสอบ'},
+  {id:'scores',  em:'📊', label:'ตัดเกรด'},
+  {id:'summary', em:'📝', label:'สรุปการสอน'},
+];
+const tabBar=$('#tabBar');
+TABS.forEach((t,i)=>{
+  const b=document.createElement('button');
+  b.className='tab'+(i===0?' active':''); b.dataset.tab=t.id;
+  b.innerHTML=`<span class="em">${t.em}</span>${t.label}`;
+  b.addEventListener('click',()=>selectTab(t.id));
+  tabBar.appendChild(b);
+});
+function selectTab(id){
+  $$('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===id));
+  $$('.tool').forEach(s=>s.classList.toggle('active',s.dataset.tool===id));
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+/* ---------- chip groups ---------- */
+$$('[data-chips]').forEach(group=>{
+  const single=group.dataset.single==='1';
+  group.addEventListener('click',e=>{
+    const c=e.target.closest('.chip-opt'); if(!c)return;
+    if(single){group.querySelectorAll('.chip-opt').forEach(x=>x.classList.remove('on')); c.classList.add('on');}
+    else c.classList.toggle('on');
+  });
+});
+function chipValues(name){return $$(`[data-chips="${name}"] .chip-opt.on`).map(c=>c.dataset.v);}
+function chipValue(name){const c=$(`[data-chips="${name}"] .chip-opt.on`);return c?c.dataset.v:'';}
+
+/* ---------- markdown renderer (compact) ---------- */
+function mdInline(s){
+  s=esc(s);
+  s=s.replace(/`([^`]+)`/g,'<code>$1</code>');
+  s=s.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
+  s=s.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g,'$1<em>$2</em>');
+  return s;
+}
+function mdToHtml(src){
+  const lines=String(src).replace(/\r/g,'').split('\n');
+  let html='', i=0;
+  const closeList=()=>{ if(list){html+=`</${list}>`;list=null;} };
+  let list=null;
+  while(i<lines.length){
+    let ln=lines[i];
+    // table
+    if(/\|/.test(ln) && i+1<lines.length && /^\s*\|?[\s:|-]+\|[\s:|-]*$/.test(lines[i+1]) && lines[i+1].includes('-')){
+      closeList();
+      const parseRow=r=>r.replace(/^\s*\|/,'').replace(/\|\s*$/,'').split('|').map(c=>c.trim());
+      const head=parseRow(ln); i+=2;
+      let body='';
+      while(i<lines.length && lines[i].includes('|') && lines[i].trim()!==''){
+        const cells=parseRow(lines[i]);
+        body+='<tr>'+cells.map(c=>`<td>${mdInline(c)}</td>`).join('')+'</tr>'; i++;
+      }
+      html+='<div class="tbl-scroll"><table><thead><tr>'+head.map(h=>`<th>${mdInline(h)}</th>`).join('')+'</tr></thead><tbody>'+body+'</tbody></table></div>';
+      continue;
+    }
+    const h=ln.match(/^(#{1,4})\s+(.*)$/);
+    if(h){closeList();const lv=Math.min(h[1].length,3);html+=`<h${lv}>${mdInline(h[2])}</h${lv}>`;i++;continue;}
+    if(/^\s*(---|\*\*\*|___)\s*$/.test(ln)){closeList();html+='<hr>';i++;continue;}
+    if(/^\s*>\s?/.test(ln)){closeList();html+=`<blockquote>${mdInline(ln.replace(/^\s*>\s?/,''))}</blockquote>`;i++;continue;}
+    const ol=ln.match(/^\s*\d+[.)]\s+(.*)$/);
+    const ul=ln.match(/^\s*[-*•]\s+(.*)$/);
+    if(ol){ if(list!=='ol'){closeList();html+='<ol>';list='ol';} html+=`<li>${mdInline(ol[1])}</li>`;i++;continue;}
+    if(ul){ if(list!=='ul'){closeList();html+='<ul>';list='ul';} html+=`<li>${mdInline(ul[1])}</li>`;i++;continue;}
+    if(ln.trim()===''){closeList();i++;continue;}
+    closeList(); html+=`<p>${mdInline(ln)}</p>`; i++;
+  }
+  closeList();
+  return html;
+}
+
+/* ---------- AI (sample capability) ---------- */
+let _samplePromise=null;
+function getSample(){
+  if(!_samplePromise){
+    _samplePromise=(window.claude&&window.claude.use)?window.claude.use('sample'):Promise.resolve(null);
+  }
+  return _samplePromise;
+}
+function setAiStatus(ready){
+  const chip=$('#aiChip'), txt=$('#aiChipText');
+  chip.classList.remove('ready','off');
+  if(ready){chip.classList.add('ready');txt.textContent='AI พร้อมใช้งาน';}
+  else{chip.classList.add('off');txt.textContent='AI ไม่พร้อม — เปิดใน Claude';}
+}
+getSample().then(s=>setAiStatus(!!s)).catch(()=>setAiStatus(false));
+
+function errMsgTH(code){
+  switch(code){
+    case 'not_granted': case 'sampling_disabled': case 'not_declared':
+    case 'capability_disabled': case 'capability_removed':
+      return 'ยังใช้ AI ไม่ได้ — โปรดเปิดหน้านี้ใน Claude และกดอนุญาตให้ใช้ AI';
+    case 'rate_limited': return 'ใช้งานถี่เกินไป กรุณารอสักครู่แล้วลองใหม่';
+    case 'prompt_too_large': return 'เนื้อหายาวเกินไป กรุณาตัดให้สั้นลงแล้วลองใหม่';
+    case 'refused': return 'AI ไม่สามารถตอบคำขอนี้ได้ ลองปรับข้อความที่ป้อน';
+    case 'empty_completion': return 'AI ไม่ได้ให้คำตอบ ลองเพิ่มรายละเอียดแล้วลองใหม่';
+    case 'session_expired': return 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบ Claude อีกครั้ง';
+    default: return 'เกิดข้อผิดพลาดชั่วคราว กรุณาลองใหม่อีกครั้ง';
+  }
+}
+function noteBox(kind,ic,msg){return `<div class="note-box ${kind}"><span class="ic">${ic}</span><div>${msg}</div></div>`;}
+
+const running={}; // toolId -> AbortController
+
+async function runTool(toolId, prompt, tier){
+  if(!prompt) return;
+  const out=$(`[data-out="${toolId}"]`);
+  const runBtn=$(`[data-run="${toolId}"]`);
+  const stopBtn=$(`[data-stop="${toolId}"]`);
+  const sample=await getSample();
+  if(!sample){
+    setAiStatus(false);
+    out.innerHTML=noteBox('warn','⚠️','ฟีเจอร์ AI ทำงานเมื่อเปิดหน้านี้ภายใน Claude เท่านั้น<br>ส่วน “ประมวลผลและตัดเกรด” ยังคำนวณได้ตามปกติแม้ไม่มี AI');
+    return;
+  }
+  setAiStatus(true);
+  const ctl=new AbortController(); running[toolId]=ctl;
+  runBtn.disabled=true; if(stopBtn) stopBtn.hidden=false;
+  out.innerHTML='<div class="thinking"><span class="dots"><i></i><i></i><i></i></span> กำลังคิด… (อาจใช้เวลาสักครู่)</div>';
+  try{
+    await sample(prompt,{
+      modelTier:tier||'default',
+      signal:ctl.signal,
+      onText:({text})=>{ out.innerHTML=`<div class="md">${mdToHtml(text)}</div>`; }
+    });
+  }catch(e){
+    if(e && e.code==='cancelled'){
+      if(e.text) out.innerHTML=`<div class="md">${mdToHtml(e.text)}</div><div class="cancelled-note">⏹ หยุดการสร้างแล้ว</div>`;
+      else out.innerHTML=noteBox('info','⏹','หยุดการสร้างแล้ว');
+    }else{
+      const partial=(e&&e.text)?`<div class="md">${mdToHtml(e.text)}</div>`:'';
+      out.innerHTML=partial+noteBox('err','⚠️',errMsgTH(e&&e.code));
+    }
+  }finally{
+    runBtn.disabled=false; if(stopBtn) stopBtn.hidden=true; delete running[toolId];
+  }
+}
+
+/* run / stop / copy wiring */
+document.addEventListener('click',e=>{
+  const runB=e.target.closest('[data-run]');
+  if(runB){ PROMPTS[runB.dataset.run] && PROMPTS[runB.dataset.run](); return; }
+  const stopB=e.target.closest('[data-stop]');
+  if(stopB){ const c=running[stopB.dataset.stop]; if(c)c.abort(); return; }
+  const copyB=e.target.closest('[data-copy]');
+  if(copyB){
+    const out=$(`[data-out="${copyB.dataset.copy}"]`);
+    const txt=out.innerText.trim();
+    if(!txt){toast('ยังไม่มีเนื้อหาให้คัดลอก');return;}
+    navigator.clipboard.writeText(txt).then(()=>toast('คัดลอกแล้ว ✓')).catch(()=>toast('คัดลอกไม่สำเร็จ'));
+  }
+});
+
+function need(val,msg){ if(!val||!String(val).trim()){toast(msg);return false;} return true; }
+
+/* ---------- prompt builders per tool ---------- */
+const PROMPTS={
+  plan(){
+    const subject=$('#pl-subject').value, topic=$('#pl-topic').value;
+    if(!need(subject,'กรุณากรอกวิชา')||!need(topic,'กรุณากรอกหัวข้อ'))return;
+    const p=
+`คุณเป็นครูผู้เชี่ยวชาญด้านการออกแบบการเรียนรู้ในประเทศไทย เขียน "แผนการจัดการเรียนรู้" เป็นภาษาไทยที่นำไปใช้สอนได้จริง
+
+ข้อมูล:
+- วิชา: ${subject}
+- ระดับชั้น: ${$('#pl-level').value||'-'}
+- หัวข้อ/เนื้อหา: ${topic}
+- เวลา: ${$('#pl-time').value||'-'}
+- รูปแบบการสอน: ${$('#pl-style').value}
+- จุดประสงค์ที่ครูเน้น: ${$('#pl-goal').value||'(ไม่ระบุ)'}
+
+จัดทำแผนโดยใช้หัวข้อ (ใช้ Markdown, มีหัวข้อ ## และตารางเมื่อเหมาะสม) ดังนี้:
+1. **สาระสำคัญ** (แนวคิดหลัก)
+2. **จุดประสงค์การเรียนรู้** แยกเป็น ด้านความรู้ (K) / ทักษะ (P) / คุณลักษณะ (A) เขียนเป็นจุดประสงค์เชิงพฤติกรรมที่วัดได้
+3. **สมรรถนะ/ทักษะสำคัญ** ที่พัฒนา
+4. **กิจกรรมการเรียนรู้** แบ่ง 3 ขั้น: ขั้นนำ / ขั้นสอน / ขั้นสรุป ระบุกิจกรรมและเวลาโดยประมาณของแต่ละขั้น
+5. **สื่อ/แหล่งเรียนรู้และอุปกรณ์**
+6. **การวัดและประเมินผล** เป็นตาราง (สิ่งที่วัด | วิธีวัด | เครื่องมือ | เกณฑ์)
+7. **คำถามท้ายบท / การบ้าน** 3-5 ข้อ
+
+ให้เหมาะสมกับระดับชั้นและเวลาที่กำหนด กระชับแต่ครบถ้วน`;
+    runTool('plan',p,'default');
+  },
+
+  research(){
+    const problem=$('#rs-problem').value;
+    if(!need(problem,'กรุณากรอกปัญหา/ประเด็นที่สนใจ'))return;
+    const wants=chipValues('rs-want');
+    if(!wants.length){toast('เลือกสิ่งที่อยากได้อย่างน้อย 1 อย่าง');return;}
+    const p=
+`คุณเป็นอาจารย์ที่ปรึกษางานวิจัยทางการศึกษา ช่วยครูออกแบบงานวิจัย ตอบเป็นภาษาไทยเชิงวิชาการแต่เข้าใจง่าย
+
+บริบท:
+- วิชา/สาขา: ${$('#rs-subject').value||'-'}
+- ประเภทงานวิจัย: ${$('#rs-type').value}
+- ปัญหา/ประเด็นที่พบ: ${problem}
+
+สิ่งที่ต้องจัดทำ (ใช้ Markdown มีหัวข้อ ##):
+${wants.map((w,i)=>`${i+1}. ${w}`).join('\n')}
+
+สำหรับ "โครงร่างวิจัย" ให้ครอบคลุม: ชื่อเรื่อง, ความเป็นมาและความสำคัญ, คำถามวิจัย, วัตถุประสงค์, สมมติฐาน (ถ้ามี), ตัวแปรต้น/ตัวแปรตาม, ประชากรและกลุ่มตัวอย่าง, เครื่องมือที่ใช้, วิธีดำเนินการวิจัย (ขั้นตอน), การวิเคราะห์ข้อมูล (สถิติที่ใช้), และประโยชน์ที่คาดว่าจะได้รับ
+เน้นความเป็นไปได้จริงในบริบทห้องเรียนไทย`;
+    runTool('research',p,'default');
+  },
+
+  grade(){
+    const rubric=$('#gr-rubric').value, work=$('#gr-work').value;
+    if(!need(rubric,'กรุณากรอกโจทย์/เกณฑ์')||!need(work,'กรุณาวางงานของนักเรียน'))return;
+    const p=
+`คุณเป็นครูผู้ตรวจงานที่ยุติธรรมและใส่ใจพัฒนาการของนักเรียน ตรวจงานต่อไปนี้เป็นภาษาไทย
+โทนการให้ข้อเสนอแนะ: ${chipValue('gr-tone')}
+
+วิชา/ประเภทงาน: ${$('#gr-subject').value||'-'}
+คะแนนเต็ม: ${$('#gr-max').value||'-'} คะแนน
+
+โจทย์และเกณฑ์การให้คะแนน:
+"""${rubric}"""
+
+งานของนักเรียน:
+"""${work}"""
+
+ให้ผลการตรวจ (ใช้ Markdown มีหัวข้อ ##):
+1. **คะแนนที่ให้** — ระบุคะแนนรวม และถ้าเกณฑ์แยกเป็นด้าน ให้แจกแจงคะแนนรายด้านเป็นตาราง (เกณฑ์ | คะแนนที่ได้ | เต็ม | เหตุผล)
+2. **จุดเด่น** ของงาน (2-4 ข้อ ยกตัวอย่างจากงานจริง)
+3. **จุดที่ควรปรับปรุง** (2-4 ข้อ ระบุให้ชัดว่าตรงไหน)
+4. **ข้อเสนอแนะเพื่อพัฒนา** — เขียนถึงนักเรียนโดยตรง ให้แนวทางแก้ไขที่ทำได้จริง พร้อมตัวอย่างการปรับแก้ 1-2 จุด
+
+ยึดตามเกณฑ์ที่ให้อย่างเคร่งครัดและให้เหตุผลประกอบคะแนน`;
+    runTool('grade',p,'default');
+  },
+
+  create(){
+    const subject=$('#cr-subject').value, topic=$('#cr-topic').value;
+    if(!need(subject,'กรุณากรอกวิชา')||!need(topic,'กรุณากรอกหัวข้อ'))return;
+    const withAns=$('#cr-answer').checked;
+    const p=
+`คุณเป็นครูผู้ออกข้อสอบที่มีคุณภาพตามหลักการวัดและประเมินผล ออกโจทย์เป็นภาษาไทย
+
+ข้อกำหนด:
+- วิชา: ${subject}
+- ระดับชั้น: ${$('#cr-level').value||'-'}
+- หัวข้อ/เนื้อหา: ${topic}
+- ประเภท: ${$('#cr-type').value}
+- จำนวน: ${$('#cr-count').value||'5'} ข้อ
+- ระดับความยาก: ${$('#cr-diff').value}
+- เงื่อนไขเพิ่มเติม: ${$('#cr-extra').value||'(ไม่มี)'}
+
+จัดทำโดยใช้ Markdown:
+- เขียนโจทย์แต่ละข้อให้ชัดเจน สอดคล้องกับระดับชั้นและระดับความยากตามพุทธิพิสัยของ Bloom
+- ปรนัยให้มี 4 ตัวเลือก (ก ข ค ง) โดยตัวลวงสมเหตุสมผล
+${withAns?`- ท้ายชุด ใส่หัวข้อ ## เฉลยและแนวคำตอบ พร้อมคำอธิบายสั้น ๆ และเกณฑ์การให้คะแนน (โดยเฉพาะข้ออัตนัย)`:'- ไม่ต้องใส่เฉลย'}
+- ระบุระดับ Bloom ของแต่ละข้อในวงเล็บ เช่น (วิเคราะห์)
+
+ให้คำถามหลากหลาย ไม่ถามซ้ำแนวเดียว`;
+    runTool('create',p,'default');
+  },
+
+  summary(){
+    const text=$('#sm-text').value;
+    if(!need(text,'กรุณาวางเนื้อหาที่จะสรุป'))return;
+    const p=
+`คุณเป็นครูที่ถ่ายทอดเนื้อหาได้กระชับชัดเจน ทำงานต่อไปนี้เป็นภาษาไทย
+งานที่ต้องทำ: ${chipValue('sm-mode')}
+
+เนื้อหา/บันทึก:
+"""${text}"""
+
+ใช้ Markdown จัดรูปแบบให้อ่านง่าย มีหัวข้อ ## และ bullet ตามความเหมาะสม กระชับ ตรงประเด็น และคงสาระสำคัญไว้ครบ`;
+    runTool('summary',p,'default');
+  },
+
+  scores(){
+    const data=computeScores();
+    if(!data.students.length){toast('ยังไม่มีข้อมูลนักเรียน');return;}
+    const rows=data.students.map(s=>`${s.name}: ${s.pct.toFixed(1)}% เกรด ${s.grade}`).join('\n');
+    const st=data.stats;
+    const distTxt=Object.entries(data.dist).map(([g,c])=>`เกรด ${g}: ${c} คน`).join(', ');
+    const p=
+`คุณเป็นครูที่วิเคราะห์ผลการเรียนเพื่อพัฒนาการสอน วิเคราะห์ผลคะแนนของห้องเรียนนี้เป็นภาษาไทย
+
+จำนวนนักเรียน: ${data.students.length} คน (คิดจากคะแนนรวมเต็ม ${data.totalMax} คะแนน)
+สถิติร้อยละ: เฉลี่ย ${st.mean.toFixed(1)} | มัธยฐาน ${st.median.toFixed(1)} | สูงสุด ${st.max.toFixed(1)} | ต่ำสุด ${st.min.toFixed(1)} | ส่วนเบี่ยงเบนมาตรฐาน ${st.sd.toFixed(1)}
+ผ่านเกณฑ์ (>=50%): ${st.pass} คน / ไม่ผ่าน ${data.students.length-st.pass} คน
+การกระจายเกรด: ${distTxt}
+
+รายบุคคล:
+${rows}
+
+ให้ผลวิเคราะห์ (ใช้ Markdown มีหัวข้อ ##):
+1. **ภาพรวมผลการเรียน** ของห้อง
+2. **กลุ่มนักเรียนที่ควรดูแลเป็นพิเศษ** (อ่อน/เก่ง) และข้อสังเกต
+3. **ข้อเสนอแนะเพื่อพัฒนาการเรียนการสอน** ที่ทำได้จริง 3-5 ข้อ
+ไม่ต้องระบุชื่อจริงในเชิงตำหนิ ใช้ถ้อยคำเชิงบวกและสร้างสรรค์`;
+    runTool('scores',p,'default');
+  }
+};
+
+/* ============================================================
+   SCORE PROCESSING (local, no AI)
+   ============================================================ */
+const SC_KEY='teacher-ai-scores-v1';
+let SC={ cols:[], students:[], rules:[] };
+
+const DEFAULT_RULES=[
+  {min:80,g:'4'},{min:75,g:'3.5'},{min:70,g:'3'},{min:65,g:'2.5'},
+  {min:60,g:'2'},{min:55,g:'1.5'},{min:50,g:'1'},{min:0,g:'0'}
+];
+
+function scLoad(){
+  try{const raw=localStorage.getItem(SC_KEY); if(raw){SC=JSON.parse(raw);}}catch(e){}
+  if(!SC.cols||!SC.cols.length){
+    SC.cols=[
+      {id:'c1',name:'คะแนนเก็บ',max:50},
+      {id:'c2',name:'กลางภาค',max:20},
+      {id:'c3',name:'ปลายภาค',max:30},
+    ];
+  }
+  if(!SC.students||!SC.students.length){
+    SC.students=[
+      {id:'s1',name:'สมชาย ใจดี',   sc:{c1:44,c2:15,c3:24}},
+      {id:'s2',name:'สมหญิง เรียนดี',sc:{c1:48,c2:19,c3:28}},
+      {id:'s3',name:'ธนา มานะ',      sc:{c1:31,c2:9, c3:14}},
+      {id:'s4',name:'ปิยะ ตั้งใจ',    sc:{c1:40,c2:13,c3:21}},
+      {id:'s5',name:'อรุณ สว่าง',     sc:{c1:25,c2:7, c3:11}},
+    ];
+  }
+  if(!SC.rules||!SC.rules.length) SC.rules=DEFAULT_RULES.map(r=>({...r}));
+}
+function scSave(){ try{localStorage.setItem(SC_KEY,JSON.stringify(SC));}catch(e){} }
+const uid=()=>Math.random().toString(36).slice(2,8);
+
+function gradeFor(pct){
+  const rules=[...SC.rules].sort((a,b)=>b.min-a.min);
+  for(const r of rules){ if(pct>=r.min) return r.g; }
+  return rules.length?rules[rules.length-1].g:'-';
+}
+function gradeClass(g){
+  const n=parseFloat(g);
+  if(isNaN(n)) return 'g-mid';
+  if(n>=3.5) return 'g-hi';
+  if(n>=2) return 'g-mid';
+  if(n>=1) return 'g-low';
+  return 'g-fail';
+}
+
+function computeScores(){
+  const totalMax=SC.cols.reduce((a,c)=>a+(Number(c.max)||0),0);
+  const students=SC.students.map(s=>{
+    const raw=SC.cols.reduce((a,c)=>a+(Number(s.sc[c.id])||0),0);
+    const pct=totalMax>0?(raw/totalMax*100):0;
+    return {...s, raw, pct, grade:gradeFor(pct)};
+  });
+  const pcts=students.map(s=>s.pct);
+  const stats=statsOf(pcts);
+  const dist={};
+  [...SC.rules].sort((a,b)=>parseFloat(b.g)-parseFloat(a.g)).forEach(r=>dist[r.g]=0);
+  students.forEach(s=>{ dist[s.grade]=(dist[s.grade]||0)+1; });
+  return {students, stats, dist, totalMax};
+}
+function statsOf(arr){
+  const n=arr.length;
+  if(!n) return {mean:0,median:0,max:0,min:0,sd:0,pass:0};
+  const sorted=[...arr].sort((a,b)=>a-b);
+  const mean=arr.reduce((a,b)=>a+b,0)/n;
+  const median=n%2?sorted[(n-1)/2]:(sorted[n/2-1]+sorted[n/2])/2;
+  const variance=arr.reduce((a,b)=>a+(b-mean)**2,0)/n;
+  const pass=arr.filter(x=>x>=50).length;
+  return {mean,median,max:sorted[n-1],min:sorted[0],sd:Math.sqrt(variance),pass};
+}
+
+function renderScores(){
+  const data=computeScores();
+  const t=$('#scoreTable');
+  // header
+  let head='<thead><tr><th style="text-align:left;min-width:150px">นักเรียน</th>';
+  SC.cols.forEach(c=>{
+    head+=`<th data-col="${c.id}"><div class="colhead"><span contenteditable="true" class="colname" data-col="${c.id}">${esc(c.name)}</span>`
+        +`<input class="maxin" type="number" min="1" value="${c.max}" data-max="${c.id}" title="คะแนนเต็ม"></div>`
+        +(SC.cols.length>1?`<button class="col-del" data-delcol="${c.id}" title="ลบช่องนี้">✕</button>`:'')+'</th>';
+  });
+  head+=`<th style="min-width:70px">รวม<br><span style="font-weight:400;color:var(--ink-faint)">/${data.totalMax}</span></th><th style="min-width:64px">ร้อยละ</th><th style="min-width:56px">เกรด</th><th></th></tr></thead>`;
+  // body
+  let body='<tbody>';
+  data.students.forEach(s=>{
+    body+=`<tr data-row="${s.id}"><td class="namecell"><input type="text" value="${esc(s.name)}" data-name="${s.id}"></td>`;
+    SC.cols.forEach(c=>{
+      const v=(s.sc[c.id]!=null&&s.sc[c.id]!=='')?s.sc[c.id]:'';
+      body+=`<td><input type="number" min="0" max="${c.max}" value="${v}" data-cell="${s.id}:${c.id}"></td>`;
+    });
+    body+=`<td class="calc">${s.raw}</td><td class="calc">${s.pct.toFixed(1)}%</td>`
+        +`<td class="calc gradecell"><span class="grade-badge ${gradeClass(s.grade)}">${s.grade}</span></td>`
+        +`<td><button class="rowdel" data-delrow="${s.id}" title="ลบแถว">🗑</button></td></tr>`;
+  });
+  body+='</tbody>';
+  t.innerHTML=head+body;
+
+  // stats
+  const st=data.stats;
+  $('#scoreStats').innerHTML=[
+    ['จำนวนนักเรียน',data.students.length,''],
+    ['คะแนนเฉลี่ย',st.mean.toFixed(1)+'%','accent'],
+    ['มัธยฐาน',st.median.toFixed(1)+'%',''],
+    ['สูงสุด',st.max.toFixed(1)+'%',''],
+    ['ต่ำสุด',st.min.toFixed(1)+'%',''],
+    ['S.D.',st.sd.toFixed(1),''],
+    ['ผ่านเกณฑ์',st.pass+'/'+data.students.length,''],
+  ].map(([k,v,cls])=>`<div class="stat ${cls}"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+
+  // distribution
+  const maxCt=Math.max(1,...Object.values(data.dist));
+  $('#scoreDist').innerHTML=Object.entries(data.dist).map(([g,ct])=>
+    `<div class="d"><div class="gd">${g}</div><div class="ct">${ct}</div>`
+    +`<div class="bar" style="width:${Math.round(ct/maxCt*100)}%;background:var(--primary)"></div></div>`).join('');
+
+  scSave();
+}
+
+function renderRules(){
+  const box=$('#gradeRules');
+  const sorted=[...SC.rules].sort((a,b)=>b.min-a.min);
+  box.innerHTML=sorted.map((r,idx)=>
+    `<div class="gr"><span class="g">${r.g}</span> ≥ `
+    +`<input type="number" min="0" max="100" value="${r.min}" data-rule="${r.g}"> %</div>`).join('');
+}
+
+/* score table events */
+$('#scoreTable').addEventListener('input',e=>{
+  const el=e.target;
+  if(el.dataset.cell){
+    const [sid,cid]=el.dataset.cell.split(':');
+    const stu=SC.students.find(s=>s.id===sid);
+    if(stu){ let v=el.value===''?'':Math.max(0,Number(el.value)); stu.sc[cid]=v; }
+    // recompute just totals without full re-render (keep focus)
+    liveRecalc();
+  }else if(el.dataset.name){
+    const stu=SC.students.find(s=>s.id===el.dataset.name); if(stu)stu.name=el.value; scSave();
+  }else if(el.dataset.max){
+    const col=SC.cols.find(c=>c.id===el.dataset.max); if(col){col.max=Math.max(1,Number(el.value)||1); renderScores();}
+  }
+});
+$('#scoreTable').addEventListener('blur',e=>{
+  if(e.target.classList&&e.target.classList.contains('colname')){
+    const col=SC.cols.find(c=>c.id===e.target.dataset.col);
+    if(col){col.name=e.target.textContent.trim()||col.name; scSave();}
+  }
+},true);
+$('#scoreTable').addEventListener('click',e=>{
+  const dr=e.target.closest('[data-delrow]');
+  if(dr){ SC.students=SC.students.filter(s=>s.id!==dr.dataset.delrow); renderScores(); return; }
+  const dc=e.target.closest('[data-delcol]');
+  if(dc){ SC.cols=SC.cols.filter(c=>c.id!==dc.dataset.delcol); SC.students.forEach(s=>delete s.sc[dc.dataset.delcol]); renderScores(); return; }
+});
+function liveRecalc(){
+  const data=computeScores();
+  $$('#scoreTable tbody tr').forEach(tr=>{
+    const s=data.students.find(x=>x.id===tr.dataset.row); if(!s)return;
+    const calc=tr.querySelectorAll('td.calc');
+    if(calc[0])calc[0].textContent=s.raw;
+    if(calc[1])calc[1].textContent=s.pct.toFixed(1)+'%';
+    if(calc[2])calc[2].innerHTML=`<span class="grade-badge ${gradeClass(s.grade)}">${s.grade}</span>`;
+  });
+  // refresh stats + dist
+  const st=data.stats;
+  const statEls=$$('#scoreStats .stat .v');
+  if(statEls.length>=7){
+    statEls[0].textContent=data.students.length;
+    statEls[1].textContent=st.mean.toFixed(1)+'%';
+    statEls[2].textContent=st.median.toFixed(1)+'%';
+    statEls[3].textContent=st.max.toFixed(1)+'%';
+    statEls[4].textContent=st.min.toFixed(1)+'%';
+    statEls[5].textContent=st.sd.toFixed(1);
+    statEls[6].textContent=st.pass+'/'+data.students.length;
+  }
+  const maxCt=Math.max(1,...Object.values(data.dist));
+  $('#scoreDist').innerHTML=Object.entries(data.dist).map(([g,ct])=>
+    `<div class="d"><div class="gd">${g}</div><div class="ct">${ct}</div>`
+    +`<div class="bar" style="width:${Math.round(ct/maxCt*100)}%"></div></div>`).join('');
+  scSave();
+}
+
+/* rules events */
+$('#gradeRules').addEventListener('input',e=>{
+  if(e.target.dataset.rule){
+    const r=SC.rules.find(x=>x.g===e.target.dataset.rule);
+    if(r){ r.min=Math.min(100,Math.max(0,Number(e.target.value)||0)); renderScores(); }
+  }
+});
+
+/* toolbar buttons */
+$('#sc-add-student').addEventListener('click',()=>{
+  SC.students.push({id:'s'+uid(),name:'นักเรียนคนที่ '+(SC.students.length+1),sc:{}});
+  renderScores();
+  const rows=$$('#scoreTable tbody tr'); const last=rows[rows.length-1];
+  if(last){const inp=last.querySelector('input[data-name]'); if(inp){inp.focus();inp.select();}}
+});
+$('#sc-add-col').addEventListener('click',()=>{
+  const id='c'+uid();
+  SC.cols.push({id,name:'ช่องใหม่',max:10});
+  renderScores();
+});
+$('#sc-clear').addEventListener('click',()=>{
+  if(!confirm('ลบข้อมูลนักเรียนและคะแนนทั้งหมด? (เกณฑ์การตัดเกรดจะยังอยู่)'))return;
+  SC.students=[]; renderScores(); toast('ล้างข้อมูลแล้ว');
+});
+$('#sc-copy-csv').addEventListener('click',()=>{
+  const data=computeScores();
+  const header=['นักเรียน',...SC.cols.map(c=>`${c.name}(${c.max})`),'รวม','ร้อยละ','เกรด'];
+  const lines=[header.join(',')];
+  data.students.forEach(s=>{
+    const row=[csvCell(s.name),...SC.cols.map(c=>s.sc[c.id]!=null&&s.sc[c.id]!==''?s.sc[c.id]:''),s.raw,s.pct.toFixed(1),s.grade];
+    lines.push(row.join(','));
+  });
+  navigator.clipboard.writeText(lines.join('\n')).then(()=>toast('คัดลอก CSV แล้ว ✓ วางใน Excel/Sheets ได้เลย')).catch(()=>toast('คัดลอกไม่สำเร็จ'));
+});
+function csvCell(s){ s=String(s); return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; }
+
+/* paste from spreadsheet */
+$('#sc-paste').addEventListener('click',()=>{
+  const raw=prompt('วางข้อมูลจาก Excel/Google Sheets\n\nรูปแบบ: คอลัมน์แรกคือชื่อ ตามด้วยคะแนนแต่ละช่อง (คั่นด้วย Tab หรือ , )\nบรรทัดแรกอาจเป็นหัวตาราง\n\nตัวอย่าง:\nชื่อ\tเก็บ\tกลางภาค\tปลายภาค\nสมชาย\t44\t15\t24');
+  if(!raw)return;
+  const rows=raw.trim().split(/\r?\n/).map(r=>r.split(/\t|,/).map(c=>c.trim()));
+  if(!rows.length)return;
+  // detect header: if 2nd cell of first row not a number
+  let start=0;
+  if(rows[0].length>1 && isNaN(Number(rows[0][1]))) start=1;
+  const nCols=Math.max(...rows.slice(start).map(r=>r.length))-1;
+  if(nCols<1){toast('ไม่พบคอลัมน์คะแนน');return;}
+  // build columns
+  const cols=[];
+  for(let i=0;i<nCols;i++){
+    const name=(start===1&&rows[0][i+1])?rows[0][i+1]:('ช่องที่ '+(i+1));
+    cols.push({id:'c'+uid(),name,max:100});
+  }
+  const students=[];
+  rows.slice(start).forEach(r=>{
+    if(!r[0])return;
+    const sc={};
+    cols.forEach((c,i)=>{ const v=Number(r[i+1]); sc[c.id]=isNaN(v)?'':v; });
+    students.push({id:'s'+uid(),name:r[0],sc});
+  });
+  if(!students.length){toast('ไม่พบข้อมูลนักเรียน');return;}
+  // guess max = ceil of column max, min 10
+  cols.forEach(c=>{
+    const mx=Math.max(...students.map(s=>Number(s.sc[c.id])||0),0);
+    c.max=Math.max(10,Math.ceil(mx));
+  });
+  SC.cols=cols; SC.students=students;
+  renderScores();
+  toast(`นำเข้า ${students.length} คน ${cols.length} ช่องแล้ว — ตรวจสอบคะแนนเต็มด้วยนะครับ`);
+});
+
+/* settings caret already CSS; init */
+scLoad(); renderScores(); renderRules();
+</script>
+<!-- ARTIFACT-CONTENT-END -->
+</body>
+</html>
