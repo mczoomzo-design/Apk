@@ -380,7 +380,10 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
     <h2>ตัวอย่างใบเสร็จ</h2>
     <p class="sub">พอใจแล้วกด “ตกลง” เพื่อไปสั่งพิมพ์</p>
     <div class="review-stage"><div id="reviewFrame"></div></div>
-    <div id="styleChips" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:10px 0 4px"></div>
+    <div style="font-size:13px;color:var(--muted);text-align:center;margin-top:10px">รูปแบบสลิป</div>
+    <div id="styleChips" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:4px 0 2px"></div>
+    <div style="font-size:13px;color:var(--muted);text-align:center;margin-top:8px">ฟิลเตอร์รูป (ตัวอย่าง = ที่ปริ้นจริง)</div>
+    <div id="filterChips" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:4px 0 2px"></div>
     <div class="review-actions">
       <button class="btn btn-line" onclick="retake()">📷 ถ่ายใหม่</button>
       <button class="btn btn-ink" onclick="go('copies')">ตกลง ✓</button>
@@ -455,6 +458,15 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
           <option value="ticket">Ticket (ตั๋ว)</option>
           <option value="meme">Meme (โปสเตอร์+คำคม)</option>
           <option value="vertical">Vertical (บาร์โค้ดแนวตั้ง)</option>
+        </select>
+      </label>
+      <label class="fld">ฟิลเตอร์รูป (แบบที่จะปริ้น)
+        <select id="filterSel" oninput="setPhotoFilter(this.value)">
+          <option value="soft">นุ่ม (Floyd–Steinberg)</option>
+          <option value="atkinson">คมชัด (Atkinson)</option>
+          <option value="halftone">จุด ฮาล์ฟโทน</option>
+          <option value="bw">ขาวดำจัด</option>
+          <option value="none">สีเทา (ไม่ dither)</option>
         </select>
       </label>
       <label class="fld">คำคม (สำหรับสไตล์ Meme)
@@ -2853,11 +2865,14 @@ async function startCamera(){
   }
   updateCamUI();
 }
+function cellRatio(){ return (selected&&selected.cellRatio)?selected.cellRatio:1.15; }
 function buildCamFrame(){
   const f=document.getElementById('camFrame');
-  // Single live preview — one shot fills every layer of the chosen layout.
+  // Single live preview cropped to the SAME aspect as the chosen layout's photo
+  // cell, so what you frame in the camera is exactly what lands on the slip.
   f.style.gridTemplateColumns='1fr';
-  f.innerHTML=`<div class="cam-slot current" data-i="0">
+  const cr=cellRatio(), aw=1000, ah=Math.round(1000*cr);
+  f.innerHTML=`<div class="cam-slot current" data-i="0" style="aspect-ratio:${aw}/${ah};max-height:58vh;max-width:100%;width:auto;margin:0 auto">
       <video muted playsinline></video>
       <div class="cam-placeholder">กำลังเปิดกล้อง…</div>
     </div>`+
@@ -2909,7 +2924,8 @@ async function shoot(){
 }
 function captureInto(i){
   const video=document.querySelector('#camFrame video');
-  const c=document.createElement('canvas'); c.width=400;c.height=500;
+  const cr=cellRatio();                       // match the layout cell aspect
+  const c=document.createElement('canvas'); c.width=900; c.height=Math.round(900*cr);
   const ctx=c.getContext('2d');
   if(video && video.videoWidth){
     const vr=video.videoWidth/video.videoHeight, cr=c.width/c.height; let sw,sh,sx,sy;
@@ -2928,13 +2944,18 @@ function stopCamera(){ if(stream){stream.getTracks().forEach(t=>t.stop());stream
 
 /* ---------------- review ---------------- */
 const SLIP_STYLES=[['receipt','ใบเสร็จ'],['ticket','ตั๋ว'],['meme','โปสเตอร์'],['vertical','แนวตั้ง']];
+const PHOTO_FILTERS=[['soft','นุ่ม'],['atkinson','คมชัด'],['halftone','จุด (ฮาล์ฟโทน)'],['bw','ขาวดำจัด'],['none','สีเทา (ไม่ dither)']];
+function chip(active,label,fn){
+  return `<button class="btn ${active?'btn-ink':'btn-line'}" style="padding:8px 14px;font-size:14px;width:auto;border-radius:999px" onclick="${fn}">${label}</button>`;
+}
 function renderStyleChips(){
-  const box=document.getElementById('styleChips'); if(!box) return;
-  const cur=slipStyle();
-  box.innerHTML=SLIP_STYLES.map(([id,label])=>
-    `<button class="btn ${id===cur?'btn-ink':'btn-line'}" style="padding:8px 14px;font-size:14px;width:auto;border-radius:999px" onclick="pickStyle('${id}')">${label}</button>`).join('');
+  const box=document.getElementById('styleChips'); if(box){ const cur=slipStyle();
+    box.innerHTML=SLIP_STYLES.map(([id,l])=>chip(id===cur,l,`pickStyle('${id}')`)).join(''); }
+  const fb=document.getElementById('filterChips'); if(fb){ const cf=photoFilter();
+    fb.innerHTML=PHOTO_FILTERS.map(([id,l])=>chip(id===cf,l,`pickFilter('${id}')`)).join(''); }
 }
 function pickStyle(id){ setSlipStyle(id); renderStyleChips(); drawReview(); }
+function pickFilter(id){ setPhotoFilter(id); renderStyleChips(); drawReview(); }
 async function drawReview(){
   const f=document.getElementById('reviewFrame');
   renderStyleChips();
@@ -3080,6 +3101,53 @@ function buildStrip(mode){
     ctx.bezierCurveTo(cx+s*0.5,cy-s*0.85, cx+s*1.05,cy-s*0.15, cx,cy+s*0.62);
     ctx.stroke(); ctx.restore();
   };
+  // Filter one photo to a cw×ch canvas, applying the SAME 1-bit processing the
+  // printer will do, so the on-screen preview matches the printout exactly.
+  const filterCanvas=(im,cw,ch)=>{
+    const f=photoFilter();
+    const cc=document.createElement('canvas'); cc.width=cw; cc.height=ch;
+    const cx2=cc.getContext('2d'); cx2.fillStyle='#fff'; cx2.fillRect(0,0,cw,ch);
+    if(!(im&&im.width)){ cx2.fillStyle='#e6e6e6'; cx2.fillRect(0,0,cw,ch); return cc; }
+    const ir=im.width/im.height, tr=cw/ch; let sw,sh,sx,sy;
+    if(ir>tr){sh=im.height;sw=sh*tr;sx=(im.width-sw)/2;sy=0}else{sw=im.width;sh=sw/tr;sx=0;sy=(im.height-sh)/2}
+    cx2.drawImage(im,sx,sy,sw,sh,0,0,cw,ch);
+    if(f==='none') return cc;
+    const id=cx2.getImageData(0,0,cw,ch), d=id.data, W2=cw, H2=ch;
+    const sp=(i,v)=>{const p=i*4; d[p]=d[p+1]=d[p+2]=v; d[p+3]=255;};
+    const gamma=printGamma(), contrast=(f==='bw'?1.6:(f==='halftone'?1.25:1.12));
+    const gray=new Float32Array(W2*H2);
+    for(let i=0,p=0;i<W2*H2;i++,p+=4){
+      let l=0.299*d[p]+0.587*d[p+1]+0.114*d[p+2];
+      l=255*Math.pow(l/255,gamma);
+      l=(l-128)*contrast+128;
+      gray[i]=l<0?0:l>255?255:l;
+    }
+    if(f==='halftone'){
+      const bayer=[[0,8,2,10],[12,4,14,6],[3,11,1,9],[15,7,13,5]];
+      for(let y=0;y<H2;y++)for(let x=0;x<W2;x++){const i=y*W2+x;
+        const th=(bayer[y&3][x&3]+0.5)/16*255; sp(i,gray[i]<th?0:255);}
+    }else if(f==='atkinson'){
+      for(let y=0;y<H2;y++)for(let x=0;x<W2;x++){const i=y*W2+x;
+        const ov=gray[i], nv=ov<128?0:255; sp(i,nv); const e=(ov-nv)/8;
+        const add=(xx,yy)=>{if(xx>=0&&xx<W2&&yy>=0&&yy<H2)gray[yy*W2+xx]+=e;};
+        add(x+1,y);add(x+2,y);add(x-1,y+1);add(x,y+1);add(x+1,y+1);add(x,y+2);}
+    }else if(f==='bw'){
+      for(let i=0;i<W2*H2;i++) sp(i,gray[i]<128?0:255);
+    }else{ // 'soft' = Floyd–Steinberg
+      for(let y=0;y<H2;y++)for(let x=0;x<W2;x++){const i=y*W2+x;
+        const ov=gray[i], nv=ov<128?0:255; sp(i,nv); const e=ov-nv;
+        if(x+1<W2)gray[i+1]+=e*7/16;
+        if(y+1<H2){if(x>0)gray[i+W2-1]+=e*3/16; gray[i+W2]+=e*5/16; if(x+1<W2)gray[i+W2+1]+=e*1/16;}}
+    }
+    cx2.putImageData(id,0,0);
+    return cc;
+  };
+  const drawOnePhoto=(im,x,yy,cw,ch,radius,lineW)=>{
+    ctx.save();roundRect(ctx,x,yy,cw,ch,radius);ctx.clip();
+    ctx.drawImage(filterCanvas(im,Math.max(1,Math.round(cw)),Math.max(1,Math.round(ch))),x,yy,cw,ch);
+    ctx.restore();
+    ctx.strokeStyle=ink;ctx.lineWidth=lineW;roundRect(ctx,x,yy,cw,ch,radius);ctx.stroke();
+  };
   // draw the photo grid for template t starting at y; frame=rounded border. returns end y
   const drawPhotos=(y,frame)=>{
     const cols=t?t.cols:2, rows=t?t.rows:2, gap=12;
@@ -3087,13 +3155,7 @@ function buildStrip(mode){
     let idx=0;
     for(let r=0;r<rows;r++)for(let cX=0;cX<cols;cX++){
       const x=padX+cX*(cw+gap), yy=y+r*(ch+gap);
-      ctx.save();roundRect(ctx,x,yy,cw,ch,frame?8:6);ctx.clip();
-      const im=imgs[idx++];
-      if(im&&im.width){const ir=im.width/im.height,tr=cw/ch;let sw,sh,sx,sy;
-        if(ir>tr){sh=im.height;sw=sh*tr;sx=(im.width-sw)/2;sy=0}else{sw=im.width;sh=sw/tr;sx=0;sy=(im.height-sh)/2}
-        ctx.drawImage(im,sx,sy,sw,sh,x,yy,cw,ch);}else{ctx.fillStyle='#e6e6e6';ctx.fillRect(x,yy,cw,ch);}
-      ctx.restore();
-      ctx.strokeStyle=ink;ctx.lineWidth=frame?3.5:2.5;roundRect(ctx,x,yy,cw,ch,frame?8:6);ctx.stroke();
+      drawOnePhoto(imgs[idx++],x,yy,cw,ch,frame?8:6,frame?3.5:2.5);
     }
     return y + rows*ch + (rows-1)*gap;
   };
@@ -3193,14 +3255,7 @@ function buildStrip(mode){
       const n=Math.max(1,(t?t.slots:2)), ph=Math.round(colW*1.12);
       let py=y;
       for(let i=0;i<n;i++){
-        const x=padX, yy=py;
-        ctx.save();roundRect(ctx,x,yy,colW,ph,8);ctx.clip();
-        const im=imgs[i];
-        if(im&&im.width){const ir=im.width/im.height,tr=colW/ph;let sw,sh,sx,sy;
-          if(ir>tr){sh=im.height;sw=sh*tr;sx=(im.width-sw)/2;sy=0}else{sw=im.width;sh=sw/tr;sx=0;sy=(im.height-sh)/2}
-          ctx.drawImage(im,sx,sy,sw,sh,x,yy,colW,ph);}else{ctx.fillStyle='#e6e6e6';ctx.fillRect(x,yy,colW,ph);}
-        ctx.restore();
-        ctx.strokeStyle=ink;ctx.lineWidth=3;roundRect(ctx,x,yy,colW,ph,8);ctx.stroke();
+        drawOnePhoto(imgs[i],padX,py,colW,ph,8,3);
         py+=ph+gap;
       }
       const bx=padX+colW+gap, bTop=y, bBot=py-gap, blen=bBot-bTop;
@@ -3270,6 +3325,8 @@ function printGamma(){ try{return parseFloat(localStorage.getItem('printGamma'))
 function slipStyle(){ try{return localStorage.getItem('slipStyle')||'receipt';}catch(e){return 'receipt';} }
 function setSlipStyle(v){ try{localStorage.setItem('slipStyle',v);}catch(e){} }
 function memeQuote(){ try{return localStorage.getItem('memeQuote')||"Don't change, let go. Be brave, be strong. But take it easy, no rush.";}catch(e){return "Say cheese!";} }
+function photoFilter(){ try{return localStorage.getItem('photoFilter')||'soft';}catch(e){return 'soft';} }
+function setPhotoFilter(v){ try{localStorage.setItem('photoFilter',v);}catch(e){} }
 function openPrinterSettings(){
   const list=document.getElementById('deviceList');
   document.getElementById('printerSheet').classList.add('on');
@@ -3277,6 +3334,7 @@ function openPrinterSettings(){
     document.getElementById('shopInput').value=localStorage.getItem('shopName')||'';
     const gs=document.getElementById('gammaSel'); if(gs) gs.value=localStorage.getItem('printGamma')||'0.72';
     const ss=document.getElementById('styleSel'); if(ss) ss.value=localStorage.getItem('slipStyle')||'receipt';
+    const fsel=document.getElementById('filterSel'); if(fsel) fsel.value=localStorage.getItem('photoFilter')||'soft';
     const qi=document.getElementById('quoteInput'); if(qi) qi.value=localStorage.getItem('memeQuote')||'';
     ['ghOwner','ghRepo','ghPages','ghToken'].forEach(k=>{const el=document.getElementById(k); if(el) el.value=localStorage.getItem(k)||'';});
   }catch(e){}
