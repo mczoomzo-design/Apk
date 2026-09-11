@@ -173,7 +173,9 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .cam-placeholder{color:#666;font-size:12px;text-align:center;padding:6px}
 .count-overlay{position:absolute;inset:0;background:rgba(0,0,0,.5);display:none;place-items:center;z-index:5;border-radius:18px}
 .count-overlay.on{display:grid}
-.count-num{font-size:130px;font-family:var(--display);color:#fff;animation:popIn .9s ease}
+.count-num{font-size:200px;line-height:1;font-family:var(--display);color:#fff;
+  text-shadow:0 8px 30px rgba(0,0,0,.55),0 0 2px rgba(0,0,0,.4);animation:popIn .9s ease}
+@keyframes pop{0%{transform:scale(.35);opacity:0}45%{transform:scale(1.15);opacity:1}100%{transform:scale(1);opacity:1}}
 .cam-ctrl{display:flex;align-items:center;justify-content:center;gap:60px;padding:14px 40px 30px;z-index:3}
 .cam-side{display:flex;flex-direction:column;align-items:center;gap:6px;color:#fff;font-size:13px;width:64px}
 .cam-side .rr{width:54px;height:54px;border-radius:50%;background:rgba(255,255,255,.16);display:grid;place-items:center;font-size:20px}
@@ -384,6 +386,8 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
     <div id="styleChips" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:4px 0 2px"></div>
     <div style="font-size:13px;color:var(--muted);text-align:center;margin-top:8px">ฟิลเตอร์รูป (ตัวอย่าง = ที่ปริ้นจริง)</div>
     <div id="filterChips" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:4px 0 2px"></div>
+    <div style="font-size:13px;color:var(--muted);text-align:center;margin-top:8px">กรอบธีม</div>
+    <div id="frameChips" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:4px 0 2px"></div>
     <div class="review-actions">
       <button class="btn btn-line" onclick="retake()">📷 ถ่ายใหม่</button>
       <button class="btn btn-ink" onclick="go('copies')">ตกลง ✓</button>
@@ -467,6 +471,20 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
           <option value="halftone">จุด ฮาล์ฟโทน</option>
           <option value="bw">ขาวดำจัด</option>
           <option value="none">สีเทา (ไม่ dither)</option>
+        </select>
+      </label>
+      <label class="fld">แต่งหน้าเนียน (soft-focus)
+        <select id="beautySel" oninput="saveGh('beautyLevel',this.value)">
+          <option value="0">ปิด</option>
+          <option value="1">น้อย</option>
+          <option value="2">กลาง</option>
+          <option value="3">มาก</option>
+        </select>
+      </label>
+      <label class="fld">เสียงเอฟเฟกต์ตอนถ่าย
+        <select id="sfxSel" oninput="saveGh('sfxOn',this.value)">
+          <option value="1">เปิด</option>
+          <option value="0">ปิด</option>
         </select>
       </label>
       <label class="fld">คำคม (สำหรับสไตล์ Meme)
@@ -2888,21 +2906,42 @@ function cycleTimer(){ timerSec = timerSec===3?5:(timerSec===5?10:3); document.g
 function toggleFlash(el){ flashOn=!flashOn; document.getElementById('flashIc').textContent=flashOn?'🔦':'⚡'; }
 
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
+/* ---- sound effects (synthesised, no audio files) ---- */
+function sfxOn(){ try{return localStorage.getItem('sfxOn')!=='0';}catch(e){return true;} }
+let _actx=null;
+function actx(){ try{ if(!_actx)_actx=new (window.AudioContext||window.webkitAudioContext)(); if(_actx.state==='suspended')_actx.resume(); }catch(e){_actx=null;} return _actx; }
+function beep(freq,dur,vol){
+  if(!sfxOn())return; const a=actx(); if(!a)return;
+  try{ const o=a.createOscillator(),g=a.createGain(); o.type='sine'; o.frequency.value=freq||880;
+    g.gain.value=vol||0.12; o.connect(g); g.connect(a.destination);
+    const t=a.currentTime; o.start(t); g.gain.setValueAtTime(g.gain.value,t);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+(dur||0.12)); o.stop(t+(dur||0.12)); }catch(e){}
+}
+function shutterSound(){
+  if(!sfxOn())return; const a=actx(); if(!a)return;
+  try{ // quick noise burst = camera "click"
+    const n=Math.round(a.sampleRate*0.05), buf=a.createBuffer(1,n,a.sampleRate), d=buf.getChannelData(0);
+    for(let i=0;i<n;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/n,2.5);
+    const src=a.createBufferSource(); src.buffer=buf; const g=a.createGain(); g.gain.value=0.35;
+    src.connect(g); g.connect(a.destination); src.start();
+  }catch(e){}
+}
+function screenFlash(){
+  const el=document.getElementById('camFlash'); if(!el) return;
+  el.style.transition='opacity .05s'; el.style.opacity='1';
+  setTimeout(()=>{ el.style.transition='opacity .35s'; el.style.opacity='0'; },70);
+}
+function flashScreen(){ screenFlash(); }   // kept for older callers
 function countdownOnce(sec){
   return new Promise(res=>{
     const ov=document.getElementById('countOverlay'), nn=document.getElementById('countNum');
-    let n=sec; nn.textContent=n; ov.classList.add('on'); nn.style.animation='pop .9s ease';
+    let n=sec; nn.textContent=n; ov.classList.add('on'); nn.style.animation='pop .9s ease'; beep(760,0.12);
     const tick=setInterval(()=>{
       n--;
-      if(n>0){ nn.textContent=n; nn.style.animation='none'; void nn.offsetWidth; nn.style.animation='pop .9s ease'; }
-      else{ clearInterval(tick); ov.classList.remove('on'); res(); }
+      if(n>0){ nn.textContent=n; nn.style.animation='none'; void nn.offsetWidth; nn.style.animation='pop .9s ease'; beep(760,0.12); }
+      else{ clearInterval(tick); ov.classList.remove('on'); beep(1180,0.18,0.14); res(); }
     },1000);
   });
-}
-function flashScreen(){
-  if(!flashOn) return;
-  const el=document.getElementById('camFlash'); if(!el) return;
-  el.style.opacity='1'; setTimeout(()=>el.style.opacity='0',120);
 }
 
 // press ONCE -> auto-shoot each layer in turn (countdown -> snap) until full
@@ -2914,7 +2953,7 @@ async function shoot(){
   for(let i=0;i<n;i++){
     pill.textContent = n>1 ? `กำลังถ่ายรูปที่ ${i+1} / ${n}` : 'กำลังถ่าย…';
     await countdownOnce(timerSec);
-    flashScreen();
+    screenFlash(); shutterSound();  // white flash + camera click on every shot
     captureInto(i);                 // grab a fresh frame from the live preview
     if(i<n-1) await wait(1100);     // pause so the subject can change pose
   }
@@ -2945,6 +2984,7 @@ function stopCamera(){ if(stream){stream.getTracks().forEach(t=>t.stop());stream
 /* ---------------- review ---------------- */
 const SLIP_STYLES=[['receipt','ใบเสร็จ'],['ticket','ตั๋ว'],['meme','โปสเตอร์'],['vertical','แนวตั้ง']];
 const PHOTO_FILTERS=[['soft','นุ่ม'],['atkinson','คมชัด'],['halftone','จุด (ฮาล์ฟโทน)'],['bw','ขาวดำจัด'],['none','สีเทา (ไม่ dither)']];
+const PHOTO_FRAMES=[['none','ไม่มี'],['hearts','หัวใจ'],['stars','ดาว'],['sparkle','ประกาย'],['dots','จุดไข่ปลา'],['film','ฟิล์ม']];
 function chip(active,label,fn){
   return `<button class="btn ${active?'btn-ink':'btn-line'}" style="padding:8px 14px;font-size:14px;width:auto;border-radius:999px" onclick="${fn}">${label}</button>`;
 }
@@ -2953,9 +2993,12 @@ function renderStyleChips(){
     box.innerHTML=SLIP_STYLES.map(([id,l])=>chip(id===cur,l,`pickStyle('${id}')`)).join(''); }
   const fb=document.getElementById('filterChips'); if(fb){ const cf=photoFilter();
     fb.innerHTML=PHOTO_FILTERS.map(([id,l])=>chip(id===cf,l,`pickFilter('${id}')`)).join(''); }
+  const rb=document.getElementById('frameChips'); if(rb){ const cr=photoFrame();
+    rb.innerHTML=PHOTO_FRAMES.map(([id,l])=>chip(id===cr,l,`pickFrame('${id}')`)).join(''); }
 }
 function pickStyle(id){ setSlipStyle(id); renderStyleChips(); drawReview(); }
 function pickFilter(id){ setPhotoFilter(id); renderStyleChips(); drawReview(); }
+function pickFrame(id){ setPhotoFrame(id); renderStyleChips(); drawReview(); }
 async function drawReview(){
   const f=document.getElementById('reviewFrame');
   renderStyleChips();
@@ -3111,6 +3154,14 @@ function buildStrip(mode){
     const ir=im.width/im.height, tr=cw/ch; let sw,sh,sx,sy;
     if(ir>tr){sh=im.height;sw=sh*tr;sx=(im.width-sw)/2;sy=0}else{sw=im.width;sh=sw/tr;sx=0;sy=(im.height-sh)/2}
     cx2.drawImage(im,sx,sy,sw,sh,0,0,cw,ch);
+    // แต่งหน้าเนียน: blend a blurred copy over the sharp photo (soft-focus skin smoothing)
+    const bl=beautyLevel();
+    if(bl>0){
+      const r=[0,1.6,2.8,4.2][bl]||2, al=[0,0.45,0.62,0.75][bl]||0.5;
+      const tmp=document.createElement('canvas'); tmp.width=cw; tmp.height=ch;
+      const tx=tmp.getContext('2d'); tx.filter='blur('+r+'px)'; tx.drawImage(cc,0,0);
+      cx2.globalAlpha=al; cx2.drawImage(tmp,0,0); cx2.globalAlpha=1;
+    }
     if(mode==='color') return cc;   // QR-download copy keeps the real colour photo
     if(f==='none') return cc;
     const id=cx2.getImageData(0,0,cw,ch), d=id.data, W2=cw, H2=ch;
@@ -3143,11 +3194,37 @@ function buildStrip(mode){
     cx2.putImageData(id,0,0);
     return cc;
   };
+  // decorative theme frames drawn over the photo border (black line-art, prints on thermal)
+  const fHeart=(cx,cy,s)=>{ctx.beginPath();ctx.moveTo(cx,cy+s*0.7);
+    ctx.bezierCurveTo(cx-s*1.1,cy-s*0.1,cx-s*0.55,cy-s*0.95,cx,cy-s*0.32);
+    ctx.bezierCurveTo(cx+s*0.55,cy-s*0.95,cx+s*1.1,cy-s*0.1,cx,cy+s*0.7);ctx.closePath();ctx.fill();};
+  const fStar=(cx,cy,r)=>{ctx.beginPath();for(let i=0;i<5;i++){const a=-Math.PI/2+i*2*Math.PI/5;
+    ctx.lineTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);const a2=a+Math.PI/5;
+    ctx.lineTo(cx+Math.cos(a2)*r*0.45,cy+Math.sin(a2)*r*0.45);}ctx.closePath();ctx.fill();};
+  const fSpark=(cx,cy,s)=>{ctx.beginPath();ctx.moveTo(cx,cy-s);ctx.quadraticCurveTo(cx,cy,cx+s,cy);
+    ctx.quadraticCurveTo(cx,cy,cx,cy+s);ctx.quadraticCurveTo(cx,cy,cx-s,cy);
+    ctx.quadraticCurveTo(cx,cy,cx,cy-s);ctx.closePath();ctx.fill();};
+  const drawFrame=(x,y,cw,ch)=>{
+    const fr=photoFrame(); if(fr==='none') return;
+    ctx.save(); ctx.fillStyle=ink; ctx.strokeStyle=ink;
+    const cs=[[x+16,y+16],[x+cw-16,y+16],[x+16,y+ch-16],[x+cw-16,y+ch-16]];
+    if(fr==='hearts') cs.forEach(([a,b])=>fHeart(a,b,9));
+    else if(fr==='stars') cs.forEach(([a,b])=>fStar(a,b,11));
+    else if(fr==='sparkle'){ cs.forEach(([a,b],k)=>fSpark(a,b,k%2?7:10));
+      fSpark(x+cw/2,y+11,6); fSpark(x+cw/2,y+ch-11,6); }
+    else if(fr==='dots'){ ctx.setLineDash([2,11]); ctx.lineWidth=6; ctx.lineCap='round';
+      roundRect(ctx,x+8,y+8,cw-16,ch-16,10); ctx.stroke(); ctx.setLineDash([]); }
+    else if(fr==='film'){ const hh=15,hw=9,gap=24, holes=Math.max(2,Math.floor((ch-24)/gap));
+      for(let i=0;i<holes;i++){ const yy=y+16+i*((ch-32)/(holes-1))-hh/2;
+        roundRect(ctx,x+3,yy,hw,hh,3); ctx.fill(); roundRect(ctx,x+cw-hw-3,yy,hw,hh,3); ctx.fill(); } }
+    ctx.restore();
+  };
   const drawOnePhoto=(im,x,yy,cw,ch,radius,lineW)=>{
     ctx.save();roundRect(ctx,x,yy,cw,ch,radius);ctx.clip();
     ctx.drawImage(filterCanvas(im,Math.max(1,Math.round(cw)),Math.max(1,Math.round(ch))),x,yy,cw,ch);
     ctx.restore();
     ctx.strokeStyle=ink;ctx.lineWidth=lineW;roundRect(ctx,x,yy,cw,ch,radius);ctx.stroke();
+    drawFrame(x,yy,cw,ch);
   };
   // draw the photo grid for template t starting at y; frame=rounded border. returns end y
   const drawPhotos=(y,frame)=>{
@@ -3328,6 +3405,9 @@ function setSlipStyle(v){ try{localStorage.setItem('slipStyle',v);}catch(e){} }
 function memeQuote(){ try{return localStorage.getItem('memeQuote')||"Don't change, let go. Be brave, be strong. But take it easy, no rush.";}catch(e){return "Say cheese!";} }
 function photoFilter(){ try{return localStorage.getItem('photoFilter')||'soft';}catch(e){return 'soft';} }
 function setPhotoFilter(v){ try{localStorage.setItem('photoFilter',v);}catch(e){} }
+function photoFrame(){ try{return localStorage.getItem('photoFrame')||'none';}catch(e){return 'none';} }
+function setPhotoFrame(v){ try{localStorage.setItem('photoFrame',v);}catch(e){} }
+function beautyLevel(){ try{const v=localStorage.getItem('beautyLevel'); return v==null?2:(parseInt(v)||0);}catch(e){return 2;} }
 function openPrinterSettings(){
   const list=document.getElementById('deviceList');
   document.getElementById('printerSheet').classList.add('on');
@@ -3336,6 +3416,8 @@ function openPrinterSettings(){
     const gs=document.getElementById('gammaSel'); if(gs) gs.value=localStorage.getItem('printGamma')||'0.72';
     const ss=document.getElementById('styleSel'); if(ss) ss.value=localStorage.getItem('slipStyle')||'receipt';
     const fsel=document.getElementById('filterSel'); if(fsel) fsel.value=localStorage.getItem('photoFilter')||'soft';
+    const bsel=document.getElementById('beautySel'); if(bsel) bsel.value=(localStorage.getItem('beautyLevel')==null?'2':localStorage.getItem('beautyLevel'));
+    const xsel=document.getElementById('sfxSel'); if(xsel) xsel.value=(localStorage.getItem('sfxOn')==='0'?'0':'1');
     const qi=document.getElementById('quoteInput'); if(qi) qi.value=localStorage.getItem('memeQuote')||'';
     ['ghOwner','ghRepo','ghPages','ghToken'].forEach(k=>{const el=document.getElementById(k); if(el) el.value=localStorage.getItem(k)||'';});
   }catch(e){}
