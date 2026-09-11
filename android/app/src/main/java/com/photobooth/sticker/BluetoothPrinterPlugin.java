@@ -55,12 +55,26 @@ public class BluetoothPrinterPlugin extends Plugin {
         call.resolve(ret);
     }
 
+    /** Send a large buffer to the SPP printer in small paced chunks so the
+     *  printer's receive buffer never overflows (overflow = lost bytes = a
+     *  desynced raster that prints garbage text and stops halfway). */
+    private static void writeChunked(OutputStream out, byte[] data) throws Exception {
+        final int CHUNK = 512;
+        for (int off = 0; off < data.length; off += CHUNK) {
+            int len = Math.min(CHUNK, data.length - off);
+            out.write(data, off, len);
+            out.flush();
+            Thread.sleep(14);   // give the printer time to consume the chunk
+        }
+    }
+
     @PluginMethod
     public void print(final PluginCall call) {
         if (!hasBtPermission()) { call.reject("no_bluetooth_permission"); return; }
         final String image = call.getString("image");
         final int copies = call.getInt("copies", 1);
         final String address = call.getString("address", null);
+        final double gamma = call.getDouble("gamma", 0.72);
         if (image == null) { call.reject("no_image"); return; }
 
         new Thread(new Runnable() {
@@ -87,19 +101,21 @@ public class BluetoothPrinterPlugin extends Plugin {
                     byte[] bytes = Base64.decode(b64, Base64.DEFAULT);
                     Bitmap bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
                     if (bmp == null) { call.reject("bad_image"); return; }
-                    byte[] raster = EscPos.bitmapToRaster(bmp, PRINT_WIDTH);
+                    byte[] raster = EscPos.bitmapToRaster(bmp, PRINT_WIDTH, (float) gamma);
 
                     int n = Math.max(1, Math.min(copies, 10));
                     for (int i = 0; i < n; i++) {
                         out.write(EscPos.INIT);
                         out.write(EscPos.ALIGN_CENTER);
-                        out.write(raster);
-                        out.write(EscPos.feed(4));
+                        writeChunked(out, raster);      // avoid overflowing the SPP buffer
+                        out.write(EscPos.feed(6));       // clear the print head past the cutter
+                        out.flush();
+                        Thread.sleep(200);
                         out.write(EscPos.CUT);
                         out.flush();
-                        Thread.sleep(500);
+                        Thread.sleep(700);               // let the last bytes drain before next / close
                     }
-                    Thread.sleep(300);
+                    Thread.sleep(600);                   // final drain before the socket closes
 
                     JSObject ret = new JSObject();
                     ret.put("printed", n);

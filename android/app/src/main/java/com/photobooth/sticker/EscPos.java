@@ -18,11 +18,26 @@ public class EscPos {
      * Floyd–Steinberg dithered, and split into horizontal bands for printer buffers.
      */
     public static byte[] bitmapToRaster(Bitmap src, int printWidth) {
+        return bitmapToRaster(src, printWidth, 0.72f);
+    }
+
+    /**
+     * @param gamma brightness curve applied before dithering. <1 lightens the
+     *              midtones (thermal paper prints darker than the screen), keeping
+     *              pure black text and white background intact. ~0.72 is a good
+     *              default for photos; smaller = lighter.
+     */
+    public static byte[] bitmapToRaster(Bitmap src, int printWidth, float gamma) {
         int w = printWidth;
         int h = Math.round(src.getHeight() * (printWidth / (float) src.getWidth()));
         Bitmap bmp = Bitmap.createScaledBitmap(src, w, h, true);
 
-        // grayscale (composite transparency onto white)
+        if (gamma <= 0f) gamma = 0.72f;
+        // precompute the gamma lightening LUT
+        int[] lut = new int[256];
+        for (int i = 0; i < 256; i++) lut[i] = Math.round(255f * (float) Math.pow(i / 255f, gamma));
+
+        // grayscale (composite transparency onto white) + brighten
         float[] gray = new float[w * h];
         for (int y = 0; y < h; y++) {
             for (int x = 0; x < w; x++) {
@@ -31,7 +46,8 @@ public class EscPos {
                 int r = (p >> 16) & 0xff, g = (p >> 8) & 0xff, b = p & 0xff;
                 float af = a / 255f;
                 float lum = (0.299f * r + 0.587f * g + 0.114f * b) * af + 255f * (1f - af);
-                gray[y * w + x] = lum;
+                int li = lum < 0 ? 0 : (lum > 255 ? 255 : Math.round(lum));
+                gray[y * w + x] = lut[li];
             }
         }
 

@@ -439,6 +439,15 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
       <label class="fld">ชื่อร้าน (หัวใบเสร็จ)
         <input id="shopInput" type="text" placeholder="PHOTO BOOTH" oninput="saveShop(this.value)">
       </label>
+      <label class="fld">ความสว่างงานพิมพ์ (ถ้ารูปมืดเกินไป เลือกสว่างขึ้น)
+        <select id="gammaSel" oninput="saveGh('printGamma',this.value)">
+          <option value="0.5">สว่างมาก</option>
+          <option value="0.6">สว่าง</option>
+          <option value="0.72" selected>มาตรฐาน</option>
+          <option value="0.85">เข้ม</option>
+          <option value="1.0">เข้มมาก</option>
+        </select>
+      </label>
       <div class="sheet-h" style="font-size:16px;margin:4px 0 10px">GitHub (สำหรับ QR ดาวน์โหลดรูป)</div>
       <label class="fld">GitHub Owner<input id="ghOwner" oninput="saveGh('ghOwner',this.value)" placeholder="ชื่อผู้ใช้ GitHub"></label>
       <label class="fld">Repository<input id="ghRepo" oninput="saveGh('ghRepo',this.value)" placeholder="ชื่อ repo (public)"></label>
@@ -2965,7 +2974,7 @@ async function startPrint(){
   if(isNative()){
     const stop=animateBar(90,2500);
     try{
-      await window.Capacitor.Plugins.BluetoothPrinter.print({image:lastStrip, copies:copies, address:getPrinter()});
+      await window.Capacitor.Plugins.BluetoothPrinter.print({image:lastStrip, copies:copies, address:getPrinter(), gamma:printGamma()});
       stop(); setBar(100); makeQR(); setTimeout(()=>go('done'),450);
     }catch(e){
       stop(); setBar(100); makeQR();
@@ -3128,11 +3137,13 @@ function setPrinter(addr,name){ printerAddr=addr; try{localStorage.setItem('prin
 function closeSheet(){ document.getElementById('printerSheet').classList.remove('on'); }
 function saveShop(v){ try{localStorage.setItem('shopName',v||'');}catch(e){} }
 function saveGh(k,v){ try{localStorage.setItem(k,v||'');}catch(e){} }
+function printGamma(){ try{return parseFloat(localStorage.getItem('printGamma'))||0.72;}catch(e){return 0.72;} }
 function openPrinterSettings(){
   const list=document.getElementById('deviceList');
   document.getElementById('printerSheet').classList.add('on');
   try{
     document.getElementById('shopInput').value=localStorage.getItem('shopName')||'';
+    const gs=document.getElementById('gammaSel'); if(gs) gs.value=localStorage.getItem('printGamma')||'0.72';
     ['ghOwner','ghRepo','ghPages','ghToken'].forEach(k=>{const el=document.getElementById(k); if(el) el.value=localStorage.getItem(k)||'';});
   }catch(e){}
   if(!isNative()){ list.innerHTML='<p class="dnote">โหมดเบราว์เซอร์ (สาธิต)<br>เชื่อมต่อเครื่องปริ้นได้เมื่อรันเป็นแอป APK บนแท็บเล็ต</p>'; return; }
