@@ -380,6 +380,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
     <h2>ตัวอย่างใบเสร็จ</h2>
     <p class="sub">พอใจแล้วกด “ตกลง” เพื่อไปสั่งพิมพ์</p>
     <div class="review-stage"><div id="reviewFrame"></div></div>
+    <div id="styleChips" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:10px 0 4px"></div>
     <div class="review-actions">
       <button class="btn btn-line" onclick="retake()">📷 ถ่ายใหม่</button>
       <button class="btn btn-ink" onclick="go('copies')">ตกลง ✓</button>
@@ -447,6 +448,17 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
           <option value="0.85">เข้ม</option>
           <option value="1.0">เข้มมาก</option>
         </select>
+      </label>
+      <label class="fld">รูปแบบสลิป
+        <select id="styleSel" oninput="setSlipStyle(this.value)">
+          <option value="receipt">Receipt (ใบเสร็จ)</option>
+          <option value="ticket">Ticket (ตั๋ว)</option>
+          <option value="meme">Meme (โปสเตอร์+คำคม)</option>
+          <option value="vertical">Vertical (บาร์โค้ดแนวตั้ง)</option>
+        </select>
+      </label>
+      <label class="fld">คำคม (สำหรับสไตล์ Meme)
+        <input id="quoteInput" type="text" placeholder="Say cheese!" oninput="saveGh('memeQuote',this.value)">
       </label>
       <div class="sheet-h" style="font-size:16px;margin:4px 0 10px">GitHub (สำหรับ QR ดาวน์โหลดรูป)</div>
       <label class="fld">GitHub Owner<input id="ghOwner" oninput="saveGh('ghOwner',this.value)" placeholder="ชื่อผู้ใช้ GitHub"></label>
@@ -2915,8 +2927,17 @@ function captureInto(i){
 function stopCamera(){ if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;} }
 
 /* ---------------- review ---------------- */
+const SLIP_STYLES=[['receipt','ใบเสร็จ'],['ticket','ตั๋ว'],['meme','โปสเตอร์'],['vertical','แนวตั้ง']];
+function renderStyleChips(){
+  const box=document.getElementById('styleChips'); if(!box) return;
+  const cur=slipStyle();
+  box.innerHTML=SLIP_STYLES.map(([id,label])=>
+    `<button class="btn ${id===cur?'btn-ink':'btn-line'}" style="padding:8px 14px;font-size:14px;width:auto;border-radius:999px" onclick="pickStyle('${id}')">${label}</button>`).join('');
+}
+function pickStyle(id){ setSlipStyle(id); renderStyleChips(); drawReview(); }
 async function drawReview(){
   const f=document.getElementById('reviewFrame');
+  renderStyleChips();
   f.innerHTML='<p class="dnote">กำลังสร้างสลิป…</p>';
   const url=await buildStrip('digital');
   f.innerHTML=`<img src="${url}" alt="slip">`;
@@ -3021,7 +3042,7 @@ function buildStrip(mode){
   if(!orderNo) newOrder();
   const mono='"Courier New",ui-monospace,monospace';
 
-  const c=document.createElement('canvas'); c.width=W; c.height=2800;
+  const c=document.createElement('canvas'); c.width=W; c.height=3800;
   const ctx=c.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,c.height);
 
   const dash=(y)=>{ctx.strokeStyle=ink;ctx.lineWidth=2;ctx.setLineDash([9,7]);
@@ -3035,61 +3056,169 @@ function buildStrip(mode){
     ctx.textAlign='left';
     for(let x=padX+lw+10;x<W-padX-rw-10;x+=7) ctx.fillText('·',x,y);
   };
+  // letter-spaced small caps label (e.g. "DRIVER OF THE DAY")
+  const caps=(txt,y,size,track)=>{
+    ctx.font=`600 ${size}px Prompt`; ctx.fillStyle=ink; ctx.textAlign='center';
+    const t2=String(txt).toUpperCase().split('').join(String.fromCharCode(8202).repeat(track||2));
+    ctx.fillText(t2,W/2,y);
+  };
+  // wrap serif text into centered lines, returns ending y
+  const wrapSerif=(txt,y,size,lh,maxw)=>{
+    ctx.font=`italic ${size}px Georgia, "Times New Roman", serif`; ctx.fillStyle=ink; ctx.textAlign='center';
+    const words=String(txt).split(' '); let line='';
+    const lines=[];
+    for(const w of words){ const test=line?line+' '+w:w; if(ctx.measureText(test).width>maxw && line){lines.push(line);line=w;} else line=test; }
+    if(line)lines.push(line);
+    for(const ln of lines){ ctx.fillText(ln,W/2,y); y+=lh; }
+    return y;
+  };
+  const drawHeart=(cx,cy,s)=>{
+    ctx.save(); ctx.strokeStyle=ink; ctx.lineWidth=7; ctx.lineJoin='round'; ctx.lineCap='round';
+    ctx.beginPath();
+    ctx.moveTo(cx,cy+s*0.62);
+    ctx.bezierCurveTo(cx-s*1.05,cy-s*0.15, cx-s*0.5,cy-s*0.85, cx,cy-s*0.28);
+    ctx.bezierCurveTo(cx+s*0.5,cy-s*0.85, cx+s*1.05,cy-s*0.15, cx,cy+s*0.62);
+    ctx.stroke(); ctx.restore();
+  };
+  // draw the photo grid for template t starting at y; frame=rounded border. returns end y
+  const drawPhotos=(y,frame)=>{
+    const cols=t?t.cols:2, rows=t?t.rows:2, gap=12;
+    const cw=(W-padX*2-gap*(cols-1))/cols, ch=Math.round(cw*(t&&t.cellRatio?t.cellRatio:1.2));
+    let idx=0;
+    for(let r=0;r<rows;r++)for(let cX=0;cX<cols;cX++){
+      const x=padX+cX*(cw+gap), yy=y+r*(ch+gap);
+      ctx.save();roundRect(ctx,x,yy,cw,ch,frame?8:6);ctx.clip();
+      const im=imgs[idx++];
+      if(im&&im.width){const ir=im.width/im.height,tr=cw/ch;let sw,sh,sx,sy;
+        if(ir>tr){sh=im.height;sw=sh*tr;sx=(im.width-sw)/2;sy=0}else{sw=im.width;sh=sw/tr;sx=0;sy=(im.height-sh)/2}
+        ctx.drawImage(im,sx,sy,sw,sh,x,yy,cw,ch);}else{ctx.fillStyle='#e6e6e6';ctx.fillRect(x,yy,cw,ch);}
+      ctx.restore();
+      ctx.strokeStyle=ink;ctx.lineWidth=frame?3.5:2.5;roundRect(ctx,x,yy,cw,ch,frame?8:6);ctx.stroke();
+    }
+    return y + rows*ch + (rows-1)*gap;
+  };
+  const qrBlock=(y)=>{
+    const qs=340; drawQRAt(ctx,(W-qs)/2,y,qs); y+=qs+18;
+    center('SCAN TO DOWNLOAD',y,'600 22px Prompt',ink); y+=42;
+    return y;
+  };
 
+  let imgs=[];
   return new Promise(res=>{
     const fontsReady=(document.fonts&&document.fonts.ready)?document.fonts.ready:Promise.resolve();
-    const imgs=photos.map(src=>{const im=new Image();im.src=src||'';return im;});
+    imgs=photos.map(src=>{const im=new Image();im.src=src||'';return im;});
     let loaded=0; const check=()=>{ if(loaded>=imgs.length) fontsReady.then(render); };
     imgs.forEach(im=>im.onload=im.onerror=()=>{loaded++;check();});
     if(imgs.length===0) fontsReady.then(render);
 
+    function finish(y){
+      const Hf=Math.min(3800,Math.round(y+34)), out=document.createElement('canvas');
+      out.width=W; out.height=Hf;
+      out.getContext('2d').drawImage(c,0,0,W,Hf,0,0,W,Hf);
+      res(out.toDataURL('image/png'));
+    }
     function render(){
+      const st=slipStyle();
+      if(st==='ticket')   return renderTicket();
+      if(st==='meme')     return renderMeme();
+      if(st==='vertical') return renderVertical();
+      return renderReceipt();
+    }
+
+    // ---------- style: RECEIPT (original) ----------
+    function renderReceipt(){
       let y=70;
       center(shopName(),y,'800 56px Anton, Prompt, sans-serif',ink); y+=40;
       center('YOUR PHOTO, YOUR RECEIPT',y,'600 22px Prompt',ink); y+=30;
       dash(y); y+=34;
-
-      // ---- photo(s) embedded in the slip ----
-      const cols=t?t.cols:2, rows=t?t.rows:2, gap=12;
-      const cw=(W-padX*2-gap*(cols-1))/cols, ch=Math.round(cw*(t&&t.cellRatio?t.cellRatio:1.2));
-      let idx=0;
-      for(let r=0;r<rows;r++)for(let cX=0;cX<cols;cX++){
-        const x=padX+cX*(cw+gap), yy=y+r*(ch+gap);
-        ctx.save();roundRect(ctx,x,yy,cw,ch,6);ctx.clip();
-        const im=imgs[idx++];
-        if(im&&im.width){const ir=im.width/im.height,tr=cw/ch;let sw,sh,sx,sy;
-          if(ir>tr){sh=im.height;sw=sh*tr;sx=(im.width-sw)/2;sy=0}else{sw=im.width;sh=sw/tr;sx=0;sy=(im.height-sh)/2}
-          ctx.drawImage(im,sx,sy,sw,sh,x,yy,cw,ch);}else{ctx.fillStyle='#e6e6e6';ctx.fillRect(x,yy,cw,ch);}
-        ctx.restore();
-        ctx.strokeStyle=ink;ctx.lineWidth=2.5;roundRect(ctx,x,yy,cw,ch,6);ctx.stroke();
-      }
-      y += rows*ch + (rows-1)*gap + 28;
+      y=drawPhotos(y,false)+28;
       dash(y); y+=34;
-
-      // ---- meta ----
       rowMono(y,'DATE',orderDate,24); y+=34;
       rowMono(y,'TIME',orderTime,24); y+=34;
       rowMono(y,'NO.',orderShort,24); y+=38;
       dash(y); y+=44;
-
       center('THANK YOU',y,'800 36px Anton, Prompt, sans-serif',ink); y+=44;
       dash(y); y+=38;
-
-      // ---- barcode ----
       drawBarcode(ctx,padX,y,W-padX*2,66); y+=66+8;
       center(orderNo,y+14,'20px '+mono,ink); y+=42;
-
-      // ---- QR (real, scannable, links to downloadable photo) ----
-      const qs=340; drawQRAt(ctx,(W-qs)/2,y,qs); y+=qs+18;
-      center('SCAN TO DOWNLOAD',y,'600 22px Prompt',ink); y+=42;
+      y=qrBlock(y);
       dash(y); y+=46;
-
-      // ---- signature ----
       center('Keep Smiling  :)',y,'700 44px Caveat, Prompt, cursive',ink); y+=30;
+      finish(y);
+    }
 
-      const Hf=y+34, out=document.createElement('canvas'); out.width=W; out.height=Hf;
-      out.getContext('2d').drawImage(c,0,0,W,Hf,0,0,W,Hf);
-      res(out.toDataURL('image/png'));
+    // ---------- style: TICKET (drift-ticket vibe) ----------
+    function renderTicket(){
+      let y=64;
+      center('FAST · FIERCE & FUN',y,'600 20px Prompt',ink); y+=46;
+      center(shopName(),y,'800 60px Anton, Prompt, sans-serif',ink); y+=42;
+      y=drawPhotos(y,true)+40;
+      caps('PHOTO OF THE DAY',y,22,2); y+=48;
+      center('NO. '+orderShort,y,'800 44px Anton, Prompt, sans-serif',ink); y+=52;
+      const col=(cx,label,val)=>{ ctx.textAlign='center';
+        ctx.font='600 18px Prompt'; ctx.fillStyle=ink; ctx.fillText(label,cx,y);
+        ctx.font='800 30px Anton, Prompt, sans-serif'; ctx.fillText(val,cx,y+34); };
+      const x1=padX+(W-padX*2)/6, x2=W/2, x3=W-padX-(W-padX*2)/6;
+      col(x1,'DATE',orderDate.slice(5)); col(x2,'TIME',orderTime); col(x3,'NO.',orderShort);
+      y+=74; dash(y); y+=42;
+      center('MAKE IT MEMORABLE',y,'600 20px Prompt',ink); y+=28;
+      drawBarcode(ctx,padX+50,y,W-padX*2-100,58); y+=58+34;
+      drawHeart(W/2,y,30); y+=64;
+      y=qrBlock(y);
+      finish(y);
+    }
+
+    // ---------- style: MEME (poster + quote) ----------
+    function renderMeme(){
+      let y=96;
+      center(shopName(),y,'700 66px Caveat, Prompt, cursive',ink); y+=28;
+      dash(y); y+=42;
+      caps('THE MOMENT',y,22,2); y+=46;
+      center('SAY CHEESE :)',y,'800 40px Anton, Prompt, sans-serif',ink); y+=42;
+      y=drawPhotos(y,true)+44;
+      y=wrapSerif(memeQuote(),y,26,38,W-padX*2)+18;
+      y=qrBlock(y);
+      finish(y);
+    }
+
+    // ---------- style: VERTICAL (photos left, vertical barcode right) ----------
+    function renderVertical(){
+      let y=90;
+      center(shopName(),y,'700 60px Caveat, Prompt, cursive',ink); y+=24;
+      dash(y); y+=34;
+      caps('ITEM',y,20,2); y+=38;
+      center('NO. '+orderShort,y,'800 38px Anton, Prompt, sans-serif',ink); y+=30;
+      center(orderDate,y,'600 20px Prompt',ink); y+=32;
+      const bcw=70, gap=16, colW=W-padX*2-bcw-gap;
+      const n=Math.max(1,(t?t.slots:2)), ph=Math.round(colW*1.12);
+      let py=y;
+      for(let i=0;i<n;i++){
+        const x=padX, yy=py;
+        ctx.save();roundRect(ctx,x,yy,colW,ph,8);ctx.clip();
+        const im=imgs[i];
+        if(im&&im.width){const ir=im.width/im.height,tr=colW/ph;let sw,sh,sx,sy;
+          if(ir>tr){sh=im.height;sw=sh*tr;sx=(im.width-sw)/2;sy=0}else{sw=im.width;sh=sw/tr;sx=0;sy=(im.height-sh)/2}
+          ctx.drawImage(im,sx,sy,sw,sh,x,yy,colW,ph);}else{ctx.fillStyle='#e6e6e6';ctx.fillRect(x,yy,colW,ph);}
+        ctx.restore();
+        ctx.strokeStyle=ink;ctx.lineWidth=3;roundRect(ctx,x,yy,colW,ph,8);ctx.stroke();
+        py+=ph+gap;
+      }
+      const bx=padX+colW+gap, bTop=y, bBot=py-gap, blen=bBot-bTop;
+      ctx.save(); ctx.translate(bx+bcw/2,(bTop+bBot)/2); ctx.rotate(-Math.PI/2);
+      drawBarcode(ctx,-blen/2,-bcw/2,blen,38);
+      ctx.restore();
+      ctx.save(); ctx.translate(bx+bcw-6,bBot); ctx.rotate(-Math.PI/2);
+      ctx.textAlign='left'; ctx.font='800 22px Anton, Prompt, sans-serif'; ctx.fillStyle=ink;
+      ctx.fillText('SHIPPING FROM '+((shopName().split(' ')[0])||'BOOTH'),0,0);
+      ctx.restore();
+      y=py+6; dash(y); y+=34;
+      rowMono(y,'QTY',String(n*17),22); y+=32;
+      rowMono(y,'DELIVERY','SAME DAY',22); y+=32;
+      rowMono(y,'GUARANTEE','ONE YEAR',22); y+=32;
+      rowMono(y,'DISCOUNT','CUTENESS',22); y+=40;
+      dash(y); y+=40;
+      y=qrBlock(y);
+      finish(y);
     }
   });
 }
@@ -3138,12 +3267,17 @@ function closeSheet(){ document.getElementById('printerSheet').classList.remove(
 function saveShop(v){ try{localStorage.setItem('shopName',v||'');}catch(e){} }
 function saveGh(k,v){ try{localStorage.setItem(k,v||'');}catch(e){} }
 function printGamma(){ try{return parseFloat(localStorage.getItem('printGamma'))||0.72;}catch(e){return 0.72;} }
+function slipStyle(){ try{return localStorage.getItem('slipStyle')||'receipt';}catch(e){return 'receipt';} }
+function setSlipStyle(v){ try{localStorage.setItem('slipStyle',v);}catch(e){} }
+function memeQuote(){ try{return localStorage.getItem('memeQuote')||"Don't change, let go. Be brave, be strong. But take it easy, no rush.";}catch(e){return "Say cheese!";} }
 function openPrinterSettings(){
   const list=document.getElementById('deviceList');
   document.getElementById('printerSheet').classList.add('on');
   try{
     document.getElementById('shopInput').value=localStorage.getItem('shopName')||'';
     const gs=document.getElementById('gammaSel'); if(gs) gs.value=localStorage.getItem('printGamma')||'0.72';
+    const ss=document.getElementById('styleSel'); if(ss) ss.value=localStorage.getItem('slipStyle')||'receipt';
+    const qi=document.getElementById('quoteInput'); if(qi) qi.value=localStorage.getItem('memeQuote')||'';
     ['ghOwner','ghRepo','ghPages','ghToken'].forEach(k=>{const el=document.getElementById(k); if(el) el.value=localStorage.getItem(k)||'';});
   }catch(e){}
   if(!isNative()){ list.innerHTML='<p class="dnote">โหมดเบราว์เซอร์ (สาธิต)<br>เชื่อมต่อเครื่องปริ้นได้เมื่อรันเป็นแอป APK บนแท็บเล็ต</p>'; return; }
