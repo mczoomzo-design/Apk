@@ -513,12 +513,11 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
           <option value="none">สีเทา (ไม่ dither)</option>
         </select>
       </label>
-      <label class="fld">แต่งหน้าเนียน (soft-focus)
+      <label class="fld">โหมดถ่ายสวย (Glow — ผิวสว่างใส ดูดีธรรมชาติ)
         <select id="beautySel" oninput="saveGh('beautyLevel',this.value)">
           <option value="0">ปิด</option>
-          <option value="1">น้อย</option>
-          <option value="2">กลาง</option>
-          <option value="3">มาก</option>
+          <option value="1">ธรรมชาติ</option>
+          <option value="2">ฟุ้งนุ่ม</option>
         </select>
       </label>
       <label class="fld">เสียงเอฟเฟกต์ตอนถ่าย
@@ -3335,14 +3334,16 @@ function buildStrip(mode){
     if(!(im&&im.width)){ cx2.fillStyle='#e6e6e6'; cx2.fillRect(0,0,cw,ch); return cc; }
     const ir=im.width/im.height, tr=cw/ch; let sw,sh,sx,sy;
     if(ir>tr){sh=im.height;sw=sh*tr;sx=(im.width-sw)/2;sy=0}else{sw=im.width;sh=sw/tr;sx=0;sy=(im.height-sh)/2}
-    cx2.drawImage(im,sx,sy,sw,sh,0,0,cw,ch);
-    // แต่งหน้าเนียน: blend a blurred copy over the sharp photo (soft-focus skin smoothing)
+    // โหมดถ่ายสวย (Glow): soft dreamy glow that brightens & flatters skin while
+    // keeping eyes/brows sharp — a bright blurred copy screened on with "lighten"
+    // (natural, not the plastic over-blur look).
     const bl=beautyLevel();
     if(bl>0){
-      const r=[0,1.6,2.8,4.2][bl]||2, al=[0,0.45,0.62,0.75][bl]||0.5;
+      const rad=[0,3,5][bl]||3, glow=[0,0.30,0.45][bl]||0.3;
       const tmp=document.createElement('canvas'); tmp.width=cw; tmp.height=ch;
-      const tx=tmp.getContext('2d'); tx.filter='blur('+r+'px)'; tx.drawImage(cc,0,0);
-      cx2.globalAlpha=al; cx2.drawImage(tmp,0,0); cx2.globalAlpha=1;
+      const tx=tmp.getContext('2d'); tx.filter='blur('+rad+'px) brightness(1.28)'; tx.drawImage(cc,0,0);
+      cx2.globalCompositeOperation='lighten'; cx2.globalAlpha=glow; cx2.drawImage(tmp,0,0);
+      cx2.globalCompositeOperation='source-over'; cx2.globalAlpha=1;
     }
     if(mode==='color') return cc;   // QR-download copy keeps the real colour photo
     if(f==='none') return cc;
@@ -3589,7 +3590,7 @@ function photoFilter(){ try{return localStorage.getItem('photoFilter')||'soft';}
 function setPhotoFilter(v){ try{localStorage.setItem('photoFilter',v);}catch(e){} }
 function photoFrame(){ try{return localStorage.getItem('photoFrame')||'none';}catch(e){return 'none';} }
 function setPhotoFrame(v){ try{localStorage.setItem('photoFrame',v);}catch(e){} }
-function beautyLevel(){ try{const v=localStorage.getItem('beautyLevel'); return v==null?2:(parseInt(v)||0);}catch(e){return 2;} }
+function beautyLevel(){ try{const v=localStorage.getItem('beautyLevel'); if(v==null)return 1; return Math.max(0,Math.min(2,parseInt(v)||0));}catch(e){return 1;} }
 function openPrinterSettings(){
   if(isKiosk()){ const pin=prompt('ใส่รหัสผู้ดูแล (PIN)'); if(pin===null) return; if(pin!==adminPin()){ alert('PIN ไม่ถูกต้อง'); return; } }
   const list=document.getElementById('deviceList');
@@ -3605,7 +3606,7 @@ function openPrinterSettings(){
     const gs=document.getElementById('gammaSel'); if(gs) gs.value=localStorage.getItem('printGamma')||'0.72';
     const ss=document.getElementById('styleSel'); if(ss) ss.value=localStorage.getItem('slipStyle')||'receipt';
     const fsel=document.getElementById('filterSel'); if(fsel) fsel.value=localStorage.getItem('photoFilter')||'soft';
-    const bsel=document.getElementById('beautySel'); if(bsel) bsel.value=(localStorage.getItem('beautyLevel')==null?'2':localStorage.getItem('beautyLevel'));
+    const bsel=document.getElementById('beautySel'); if(bsel) bsel.value=(localStorage.getItem('beautyLevel')==null?'1':localStorage.getItem('beautyLevel'));
     const xsel=document.getElementById('sfxSel'); if(xsel) xsel.value=(localStorage.getItem('sfxOn')==='0'?'0':'1');
     const qi=document.getElementById('quoteInput'); if(qi) qi.value=localStorage.getItem('memeQuote')||'';
     ['ghOwner','ghRepo','ghPages','ghToken'].forEach(k=>{const el=document.getElementById(k); if(el) el.value=localStorage.getItem(k)||'';});
