@@ -188,6 +188,15 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 #review h2{font-family:var(--display);font-size:30px;letter-spacing:.5px;padding:26px 0 2px}
 #review .sub{color:var(--grey);margin-bottom:8px}
 .review-stage{flex:1;display:grid;place-items:center;width:100%;min-height:0;padding:6px 0}
+.review-2col{flex:1;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:26px;width:100%;min-height:0;padding:0 20px;box-sizing:border-box}
+.review-2col .review-stage{flex:0 1 auto;width:auto}
+.review-right{flex:0 1 400px;max-width:440px;display:flex;flex-direction:column;align-items:center;gap:4px}
+.review-right .sub{margin-bottom:2px}
+.review-right .review-actions{padding:16px 0 0}
+@media (max-width:760px){
+  .review-2col{flex-direction:column;gap:8px;padding:0 12px}
+  .review-2col .review-stage{flex:0 1 auto}
+}
 #reviewFrame{max-height:100%;overflow:auto;border:2px solid var(--ink);border-radius:8px;background:#fff}
 #reviewFrame img{display:block;width:min(300px,42vh)}
 #reviewFrame .dnote{padding:40px 16px}
@@ -385,13 +394,17 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
   <!-- ========== REVIEW ========== -->
   <section class="screen" id="review">
     <h2>ตัวอย่างใบเสร็จ</h2>
-    <p class="sub">พอใจแล้วกด “ตกลง” เพื่อไปสั่งพิมพ์</p>
-    <div class="review-stage"><div id="reviewFrame"></div></div>
-    <div id="optTabs" class="opttabs"></div>
-    <div id="optChips" class="optchips"></div>
-    <div class="review-actions">
-      <button class="btn btn-line" onclick="retake()">📷 ถ่ายใหม่</button>
-      <button class="btn btn-ink" onclick="go('copies')">ตกลง ✓</button>
+    <div class="review-2col">
+      <div class="review-stage"><div id="reviewFrame"></div></div>
+      <div class="review-right">
+        <p class="sub">พอใจแล้วกด “ตกลง” เพื่อไปสั่งพิมพ์</p>
+        <div id="optTabs" class="opttabs"></div>
+        <div id="optChips" class="optchips"></div>
+        <div class="review-actions">
+          <button class="btn btn-line" onclick="retake()">📷 ถ่ายใหม่</button>
+          <button class="btn btn-ink" onclick="go('copies')">ตกลง ✓</button>
+        </div>
+      </div>
     </div>
   </section>
 
