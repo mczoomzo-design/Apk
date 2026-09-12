@@ -3334,6 +3334,7 @@ function buildStrip(mode){
     if(!(im&&im.width)){ cx2.fillStyle='#e6e6e6'; cx2.fillRect(0,0,cw,ch); return cc; }
     const ir=im.width/im.height, tr=cw/ch; let sw,sh,sx,sy;
     if(ir>tr){sh=im.height;sw=sh*tr;sx=(im.width-sw)/2;sy=0}else{sw=im.width;sh=sw/tr;sx=0;sy=(im.height-sh)/2}
+    cx2.drawImage(im,sx,sy,sw,sh,0,0,cw,ch);   // draw the actual photo (cover-crop)
     // โหมดถ่ายสวย (Glow): soft dreamy glow that brightens & flatters skin while
     // keeping eyes/brows sharp — a bright blurred copy screened on with "lighten"
     // (natural, not the plastic over-blur look).
