@@ -189,8 +189,13 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 #review .sub{color:var(--grey);margin-bottom:8px}
 .review-stage{flex:1;display:grid;place-items:center;width:100%;min-height:0;padding:6px 0}
 #reviewFrame{max-height:100%;overflow:auto;border:2px solid var(--ink);border-radius:8px;background:#fff}
-#reviewFrame img{display:block;width:min(260px,40vh)}
+#reviewFrame img{display:block;width:min(300px,42vh)}
 #reviewFrame .dnote{padding:40px 16px}
+.opttabs{display:flex;gap:4px;justify-content:center;margin:12px auto 0;background:#eeeef2;border-radius:999px;padding:4px;width:min(360px,90%)}
+.opttabs button{flex:1;border:none;background:transparent;padding:10px 4px;border-radius:999px;font-family:inherit;font-weight:700;font-size:14px;color:#5a5a63;cursor:pointer;transition:.15s}
+.opttabs button.on{background:var(--ink);color:#fff}
+.optchips{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:10px auto 2px;width:min(440px,94%);min-height:44px}
+.optchips .btn{width:auto;padding:9px 16px;font-size:14px;border-radius:999px}
 .review-actions{display:flex;gap:14px;padding:14px 0 28px}
 .review-actions .btn{min-width:180px}
 
@@ -382,12 +387,8 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
     <h2>ตัวอย่างใบเสร็จ</h2>
     <p class="sub">พอใจแล้วกด “ตกลง” เพื่อไปสั่งพิมพ์</p>
     <div class="review-stage"><div id="reviewFrame"></div></div>
-    <div style="font-size:13px;color:var(--muted);text-align:center;margin-top:10px">รูปแบบสลิป</div>
-    <div id="styleChips" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:4px 0 2px"></div>
-    <div style="font-size:13px;color:var(--muted);text-align:center;margin-top:8px">ฟิลเตอร์รูป (ตัวอย่าง = ที่ปริ้นจริง)</div>
-    <div id="filterChips" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:4px 0 2px"></div>
-    <div style="font-size:13px;color:var(--muted);text-align:center;margin-top:8px">กรอบธีม</div>
-    <div id="frameChips" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:4px 0 2px"></div>
+    <div id="optTabs" class="opttabs"></div>
+    <div id="optChips" class="optchips"></div>
     <div class="review-actions">
       <button class="btn btn-line" onclick="retake()">📷 ถ่ายใหม่</button>
       <button class="btn btn-ink" onclick="go('copies')">ตกลง ✓</button>
@@ -3024,22 +3025,27 @@ const SLIP_STYLES=[['receipt','ใบเสร็จ'],['ticket','ตั๋ว']
 const PHOTO_FILTERS=[['soft','นุ่ม'],['atkinson','คมชัด'],['halftone','จุด (ฮาล์ฟโทน)'],['bw','ขาวดำจัด'],['none','สีเทา (ไม่ dither)']];
 const PHOTO_FRAMES=[['none','ไม่มี'],['hearts','หัวใจ'],['stars','ดาว'],['sparkle','ประกาย'],['dots','จุดไข่ปลา'],['film','ฟิล์ม']];
 function chip(active,label,fn){
-  return `<button class="btn ${active?'btn-ink':'btn-line'}" style="padding:8px 14px;font-size:14px;width:auto;border-radius:999px" onclick="${fn}">${label}</button>`;
+  return `<button class="btn ${active?'btn-ink':'btn-line'}" onclick="${fn}">${label}</button>`;
 }
-function renderStyleChips(){
-  const box=document.getElementById('styleChips'); if(box){ const cur=slipStyle();
-    box.innerHTML=SLIP_STYLES.map(([id,l])=>chip(id===cur,l,`pickStyle('${id}')`)).join(''); }
-  const fb=document.getElementById('filterChips'); if(fb){ const cf=photoFilter();
-    fb.innerHTML=PHOTO_FILTERS.map(([id,l])=>chip(id===cf,l,`pickFilter('${id}')`)).join(''); }
-  const rb=document.getElementById('frameChips'); if(rb){ const cr=photoFrame();
-    rb.innerHTML=PHOTO_FRAMES.map(([id,l])=>chip(id===cr,l,`pickFrame('${id}')`)).join(''); }
+const REVIEW_TABS=[['style','รูปแบบ'],['filter','ฟิลเตอร์'],['frame','กรอบ']];
+let reviewTab='style';
+function renderReviewOptions(){
+  const tb=document.getElementById('optTabs');
+  if(tb) tb.innerHTML=REVIEW_TABS.map(([id,l])=>`<button class="${id===reviewTab?'on':''}" onclick="setReviewTab('${id}')">${l}</button>`).join('');
+  const cb=document.getElementById('optChips'); if(!cb) return;
+  let items,cur,fn;
+  if(reviewTab==='filter'){ items=PHOTO_FILTERS; cur=photoFilter(); fn='pickFilter'; }
+  else if(reviewTab==='frame'){ items=PHOTO_FRAMES; cur=photoFrame(); fn='pickFrame'; }
+  else { items=SLIP_STYLES; cur=slipStyle(); fn='pickStyle'; }
+  cb.innerHTML=items.map(([id,l])=>chip(id===cur,l,`${fn}('${id}')`)).join('');
 }
-function pickStyle(id){ setSlipStyle(id); renderStyleChips(); drawReview(); }
-function pickFilter(id){ setPhotoFilter(id); renderStyleChips(); drawReview(); }
-function pickFrame(id){ setPhotoFrame(id); renderStyleChips(); drawReview(); }
+function setReviewTab(t){ reviewTab=t; renderReviewOptions(); }
+function pickStyle(id){ setSlipStyle(id); renderReviewOptions(); drawReview(); }
+function pickFilter(id){ setPhotoFilter(id); renderReviewOptions(); drawReview(); }
+function pickFrame(id){ setPhotoFrame(id); renderReviewOptions(); drawReview(); }
 async function drawReview(){
   const f=document.getElementById('reviewFrame');
-  renderStyleChips();
+  renderReviewOptions();
   f.innerHTML='<p class="dnote">กำลังสร้างสลิป…</p>';
   const url=await buildStrip('digital');
   f.innerHTML=`<img src="${url}" alt="slip">`;
