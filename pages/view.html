@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>รูปของคุณ · Photo Booth</title>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{--pink:#ff3d8b;--pink2:#ff6aa6;--navy:#2b2e4a;--muted:#8a90a6}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Prompt",-apple-system,"Noto Sans Thai",sans-serif;background:linear-gradient(160deg,#ffe6f1,#eef4ff);
+    min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px 18px 40px;color:var(--navy)}
+  .logo{font-size:30px;font-weight:800;margin-bottom:2px}
+  .logo span{color:var(--pink)}
+  .sub{color:var(--muted);font-size:14px;letter-spacing:2px;margin-bottom:20px}
+  .card{background:#fff;border-radius:24px;padding:16px;box-shadow:0 24px 50px -20px rgba(43,46,74,.4);
+    width:100%;max-width:420px;display:flex;flex-direction:column;align-items:center}
+  #img{width:100%;border-radius:14px;display:none}
+  .state{padding:60px 10px;text-align:center;color:var(--muted)}
+  .spin{width:38px;height:38px;border-radius:50%;border:4px solid #ffd9e8;border-top-color:var(--pink);
+    animation:sp 1s linear infinite;margin:0 auto 14px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .btns{width:100%;max-width:420px;margin-top:16px;display:flex;flex-direction:column;gap:12px}
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:17px;border-radius:999px;
+    font-family:inherit;font-weight:600;font-size:18px;border:none;cursor:pointer;text-decoration:none}
+  .btn-pink{background:linear-gradient(180deg,var(--pink2),var(--pink));color:#fff;
+    box-shadow:0 14px 26px -10px rgba(255,61,139,.6)}
+  .btn-ghost{background:#fff;color:var(--pink);border:2px solid #ffd9e8}
+  .hint{color:var(--muted);font-size:13px;text-align:center;margin-top:14px;line-height:1.5;max-width:420px}
+</style>
+</head>
+<body>
+  <div class="logo">Photo <span>Booth</span></div>
+  <div class="sub">STICKER PHOTO BOOTH</div>
+
+  <div class="card">
+    <div class="state" id="state"><div class="spin"></div>กำลังโหลดรูปของคุณ…</div>
+    <img id="img" alt="slip">
+  </div>
+
+  <div class="btns" id="btns" style="display:none">
+    <button class="btn btn-pink" id="dl">💾 บันทึกรูป</button>
+    <a class="btn btn-ghost" id="open" target="_blank" rel="noopener">เปิดรูปแบบเต็ม</a>
+  </div>
+  <p class="hint" id="hint"></p>
+
+<script>
+  // Derive owner/repo from this Pages URL: https://<owner>.github.io/<repo>/view.html
+  const host = location.hostname;                       // <owner>.github.io
+  const owner = host.split('.')[0];
+  const repo  = location.pathname.split('/').filter(Boolean)[0] || '';
+  const branch = 'main';
+  const id = new URLSearchParams(location.search).get('id') || '';
+  const file = 'photos/' + id + '.png';
+
+  // raw is available immediately after upload; Pages copy may lag a minute
+  const rawURL   = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${file}`;
+  const pagesURL = `${location.origin}/${repo}/${file}`;
+
+  const imgEl=document.getElementById('img'), stateEl=document.getElementById('state'),
+        btns=document.getElementById('btns'), hint=document.getElementById('hint'),
+        openA=document.getElementById('open'), dlBtn=document.getElementById('dl');
+
+  let shownURL=null, tries=0;
+  function tryLoad(url, isLast){
+    const test=new Image();
+    test.onload=()=>{ shownURL=url; imgEl.src=url; imgEl.style.display='block'; stateEl.style.display='none';
+      btns.style.display='flex'; openA.href=url; };
+    test.onerror=()=>{
+      if(!isLast){ tryLoad(pagesURL, true); return; }
+      tries++;
+      if(tries<12){ setTimeout(()=>tryLoad(rawURL,false), 4000); stateEl.innerHTML='<div class="spin"></div>กำลังเตรียมรูป… (รอสักครู่)'; }
+      else{ stateEl.innerHTML='ไม่พบรูปนี้ 😢<br>ลองสแกนใหม่อีกครั้ง หรือติดต่อเจ้าหน้าที่'; }
+    };
+    test.src=url + (url.includes('?')?'&':'?') + 't=' + Date.now();
+  }
+  if(!id){ stateEl.textContent='ลิงก์ไม่ถูกต้อง (ไม่มีรหัสรูป)'; }
+  else{ tryLoad(rawURL, false); }
+
+  // real download: fetch blob then save; fallback to opening the image
+  dlBtn.onclick=async ()=>{
+    const url=shownURL||rawURL;
+    try{
+      const r=await fetch(url,{mode:'cors'}); const b=await r.blob();
+      const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=id+'.png';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+    }catch(e){
+      window.open(url,'_blank');
+      hint.textContent='ถ้าดาวน์โหลดไม่ขึ้น ให้กดค้างที่รูปแล้วเลือก “บันทึกรูปภาพ”';
+    }
+  };
+</script>
+</body>
+</html>

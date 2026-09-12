@@ -1,0 +1,9 @@
+{
+  "appId": "com.photobooth.sticker",
+  "appName": "Photo Booth",
+  "webDir": "www",
+  "server": { "androidScheme": "https" },
+  "plugins": {
+    "CapacitorHttp": { "enabled": true }
+  }
+}

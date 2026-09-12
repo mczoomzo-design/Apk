@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Photo Booth</string>
+    <string name="title_activity_main">Photo Booth</string>
+    <string name="package_name">com.photobooth.sticker</string>
+    <string name="custom_url_scheme">com.photobooth.sticker</string>
+</resources>
