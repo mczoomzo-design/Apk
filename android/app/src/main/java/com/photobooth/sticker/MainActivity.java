@@ -15,8 +15,12 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(BluetoothPrinterPlugin.class);
         registerPlugin(GallerySaverPlugin.class);
+        registerPlugin(KioskPlugin.class);
         super.onCreate(savedInstanceState);
         requestStartupPermissions();
+        if (BuildConfig.KIOSK) {
+            getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        }
     }
 
     private void requestStartupPermissions() {

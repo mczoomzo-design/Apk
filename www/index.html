@@ -404,11 +404,37 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
         <div class="qnum" id="copyNum">1</div>
         <button class="qbtn" onclick="setCopies(1)">+</button>
       </div>
-      <button class="btn btn-ink" onclick="startPrint()">🖨️ สั่งพิมพ์</button>
+      <div id="copyTotal" style="font-weight:800;font-size:20px;margin:6px 0 14px" hidden></div>
+      <button class="btn btn-ink" onclick="requestPrint()" id="printBtn">🖨️ สั่งพิมพ์</button>
       <div style="height:12px"></div>
       <button class="btn btn-line" onclick="go('review')">ย้อนกลับ</button>
     </div>
   </section>
+
+  <!-- ========== PAY (kiosk) ========== -->
+  <section class="screen" id="pay">
+    <div>
+      <h2>สแกนเพื่อชำระเงิน</h2>
+      <p class="hint">โอนตามยอดนี้ (ล็อกยอดแล้ว) แล้วกดสแกนสลิปยืนยัน</p>
+      <div style="font-weight:800;font-size:30px;margin:6px 0">฿ <span id="payAmount">0.00</span></div>
+      <div style="display:grid;place-items:center;margin:8px 0">
+        <canvas id="ppQR" width="320" height="320" style="width:280px;height:280px"></canvas>
+      </div>
+      <div id="payName" style="color:var(--muted);font-size:14px;margin-bottom:6px"></div>
+      <div id="payStatus" style="min-height:22px;font-size:14px;margin:6px 0"></div>
+      <button class="btn btn-ink" onclick="openSlipScanner()">📷 สแกนสลิปยืนยันการโอน</button>
+      <div style="height:10px"></div>
+      <button class="btn btn-line" onclick="go('copies')">ย้อนกลับ</button>
+    </div>
+  </section>
+
+  <!-- slip scanner overlay -->
+  <div id="scanOverlay" style="position:fixed;inset:0;background:#000;z-index:60;display:none;flex-direction:column;align-items:center;justify-content:center">
+    <div style="color:#fff;margin:14px;font-weight:700">ถือสลิป/QR ในกรอบ</div>
+    <video id="scanVid" playsinline muted style="width:88%;max-width:520px;border-radius:14px;background:#111"></video>
+    <div id="scanMsg" style="color:#fff;margin:12px;font-size:14px;text-align:center"></div>
+    <button class="btn btn-line" style="width:auto;padding:12px 26px;background:#fff" onclick="closeSlipScanner()">ยกเลิก</button>
+  </div>
 
   <!-- ========== 5 · PRINTING ========== -->
   <section class="screen" id="printing">
@@ -495,6 +521,13 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
       <label class="fld">Repository<input id="ghRepo" oninput="saveGh('ghRepo',this.value)" placeholder="ชื่อ repo (public)"></label>
       <label class="fld">Pages URL<input id="ghPages" oninput="saveGh('ghPages',this.value)" placeholder="https://user.github.io/repo"></label>
       <label class="fld">Access Token<input id="ghToken" type="password" oninput="saveGh('ghToken',this.value)" placeholder="fine-grained · contents:write"></label>
+      <div class="sheet-h" style="font-size:16px;margin:4px 0 10px">Kiosk / ระบบจ่ายเงิน (PromptPay + SlipOK)</div>
+      <label class="fld">PromptPay (เบอร์โทร/เลขบัตร ปชช.)<input id="ppIdInput" inputmode="numeric" oninput="saveGh('ppId',this.value)" placeholder="08xxxxxxxx"></label>
+      <label class="fld">ราคาต่อแผ่น (บาท)<input id="priceInput" inputmode="numeric" oninput="saveGh('pricePer',this.value)" placeholder="20"></label>
+      <label class="fld">SlipOK Branch ID<input id="slipBranchInput" oninput="saveGh('slipBranch',this.value)" placeholder="เลข branch จาก SlipOK"></label>
+      <label class="fld">SlipOK API Token<input id="slipKeyInput" type="password" oninput="saveGh('slipKey',this.value)" placeholder="SLIPOK-xxxx"></label>
+      <label class="fld">รีเซ็ตอัตโนมัติหลังพิมพ์ (วินาที)<input id="autoResetInput" inputmode="numeric" oninput="saveGh('autoResetSec',this.value)" placeholder="60"></label>
+      <label class="fld">รหัสผู้ดูแล (PIN เข้าตั้งค่าในโหมด Kiosk)<input id="adminPinInput" inputmode="numeric" oninput="saveGh('adminPin',this.value)" placeholder="1234"></label>
       <div class="sheet-h" style="font-size:16px;margin:4px 0 10px">เครื่องปริ้นที่จับคู่ไว้</div>
       <div id="deviceList"></div>
       <button class="btn btn-line" style="margin-top:14px;width:100%" onclick="closeSheet()">ปิด</button>
@@ -2826,10 +2859,15 @@ let stream = null;
 let flashOn = false;
 
 /* ---------------- navigation ---------------- */
+let _autoResetTimer=null;
 function go(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   if(id==='done'){ const d=document.getElementById('done'); spawnConfetti(d); setTimeout(()=>spawnConfetti(d),260); }
+  // kiosk: auto-return home after the customer is done, ready for the next person
+  if(_autoResetTimer){ clearTimeout(_autoResetTimer); _autoResetTimer=null; }
+  if(isKiosk() && id==='done'){ _autoResetTimer=setTimeout(()=>{ resetAll(); }, autoResetSec()*1000); }
+  if(id==='copies') updateCopyTotal();
 }
 
 /* ---------------- 2 · templates grid ---------------- */
@@ -3009,7 +3047,7 @@ async function drawReview(){
 function retake(){ orderNo=null; startCamera(); }
 
 /* ---------------- copies ---------------- */
-function setCopies(d){ copies=Math.max(1,Math.min(5,copies+d)); document.getElementById('copyNum').textContent=copies; }
+function setCopies(d){ copies=Math.max(1,Math.min(5,copies+d)); document.getElementById('copyNum').textContent=copies; updateCopyTotal(); }
 
 /* ---------------- printing ---------------- */
 let lastStrip=null;
@@ -3034,6 +3072,131 @@ async function uploadToGitHub(dataURL,id){
     body:JSON.stringify({message:'photo '+id,content:dataURL.split(',')[1],branch:c.branch})});
   if(!res.ok){ const t=await res.text(); throw new Error('GitHub '+res.status+': '+t.slice(0,140)); }
   return res.json();
+}
+
+/* ==================== KIOSK + PAYMENT (SlipOK) ==================== */
+function isKiosk(){ return !!window.__KIOSK__; }
+function lsg(k,d){ try{return localStorage.getItem(k)||d||'';}catch(e){return d||'';} }
+function ppId(){ return lsg('ppId'); }
+function pricePer(){ const v=parseFloat(lsg('pricePer')); return (isNaN(v)||v<=0)?20:v; }
+function slipKey(){ return lsg('slipKey'); }
+function slipBranch(){ return lsg('slipBranch'); }
+function autoResetSec(){ const v=parseInt(lsg('autoResetSec')); return (isNaN(v)||v<5)?60:v; }
+function adminPin(){ return lsg('adminPin','1234'); }
+function payEnabled(){ return isKiosk() || lsg('payEnabled')==='1'; }
+function payAmount(){ return Math.max(0, copies*pricePer()); }
+
+async function initKiosk(){
+  try{
+    if(window.Capacitor&&Capacitor.Plugins&&Capacitor.Plugins.Kiosk){
+      const info=await Capacitor.Plugins.Kiosk.info(); window.__KIOSK__=!!(info&&info.kiosk);
+    }
+  }catch(e){}
+  if(isKiosk()){
+    document.body.classList.add('kiosk');
+    try{ Capacitor.Plugins.Kiosk.lock(); }catch(e){}
+  }
+}
+
+function updateCopyTotal(){
+  const el=document.getElementById('copyTotal'); if(!el) return;
+  if(payEnabled()){ el.hidden=false; el.textContent='รวม ฿ '+payAmount().toFixed(2)+'  ('+copies+' แผ่น × '+pricePer()+')'; }
+  else el.hidden=true;
+  const b=document.getElementById('printBtn'); if(b) b.textContent = payEnabled()? '💳 ชำระเงิน & พิมพ์' : '🖨️ สั่งพิมพ์';
+}
+function requestPrint(){ if(payEnabled()){ preparePay(); go('pay'); } else { startPrint(); } }
+
+/* ---- PromptPay (EMVCo) locked-amount QR ---- */
+function ppTLV(id,val){ return id+String(val.length).padStart(2,'0')+val; }
+function ppCRC(s){ let c=0xFFFF; for(let i=0;i<s.length;i++){ c^=s.charCodeAt(i)<<8;
+  for(let j=0;j<8;j++){ c=(c&0x8000)?((c<<1)^0x1021):(c<<1); c&=0xFFFF; } }
+  return c.toString(16).toUpperCase().padStart(4,'0'); }
+function ppTarget(id){ id=(id||'').replace(/[^0-9]/g,'');
+  if(id.length===13) return ppTLV('02',id);                 // national ID / tax id
+  if(id.length===10) return ppTLV('01','0066'+id.slice(1)); // mobile 0xxxxxxxxx
+  if(id.length>=14) return ppTLV('03',id);                  // e-wallet
+  return ppTLV('01','0066'+id.replace(/^0/,'')); }
+function promptPayPayload(id,amount){
+  const merchant=ppTLV('00','A000000677010111')+ppTarget(id);
+  let s=ppTLV('00','01')+ppTLV('01',amount>0?'12':'11')+ppTLV('29',merchant)+ppTLV('53','764');
+  if(amount>0) s+=ppTLV('54',Number(amount).toFixed(2));
+  s+=ppTLV('58','TH')+'6304';
+  return s+ppCRC(s);
+}
+function preparePay(){
+  const amt=payAmount();
+  document.getElementById('payAmount').textContent=amt.toFixed(2);
+  document.getElementById('payName').textContent = ppId()? ('พร้อมเพย์: '+ppId()) : '⚠️ ยังไม่ได้ตั้งค่า PromptPay (⚙︎)';
+  document.getElementById('payStatus').textContent='';
+  const cv=document.getElementById('ppQR'), ctx=cv.getContext('2d');
+  ctx.fillStyle='#fff'; ctx.fillRect(0,0,cv.width,cv.height);
+  if(!ppId()) return;
+  try{ const qr=qrcode(0,'M'); qr.addData(promptPayPayload(ppId(),amt)); qr.make();
+    const n=qr.getModuleCount(), m=Math.round(cv.width*0.05), cell=(cv.width-m*2)/n; ctx.fillStyle='#000';
+    for(let r=0;r<n;r++)for(let c=0;c<n;c++) if(qr.isDark(r,c)) ctx.fillRect(m+c*cell,m+r*cell,Math.ceil(cell),Math.ceil(cell));
+  }catch(e){ ctx.fillStyle='#000'; ctx.font='16px Prompt'; ctx.fillText('QR error',20,40); }
+}
+
+/* ---- slip scanner + SlipOK verify ---- */
+let scanStream=null, scanRAF=0, scanBusy=false;
+async function openSlipScanner(){
+  if(!ppId()){ alert('ยังไม่ได้ตั้งค่า PromptPay (⚙︎)'); return; }
+  if(!slipKey()||!slipBranch()){ alert('ยังไม่ได้ตั้งค่า SlipOK Token/Branch (⚙︎)'); return; }
+  const ov=document.getElementById('scanOverlay'), vid=document.getElementById('scanVid'), msg=document.getElementById('scanMsg');
+  ov.style.display='flex'; msg.textContent='กำลังเปิดกล้อง…'; scanBusy=false;
+  try{ scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false}); }
+  catch(e){ try{ scanStream=await navigator.mediaDevices.getUserMedia({video:true,audio:false}); }catch(e2){ msg.textContent='เปิดกล้องไม่ได้: '+(e2&&e2.message||''); return; } }
+  vid.srcObject=scanStream; await vid.play().catch(()=>{});
+  msg.textContent='เล็ง QR บนสลิปให้อยู่ในกรอบ';
+  const cv=document.createElement('canvas'), cx=cv.getContext('2d');
+  const loop=()=>{
+    if(!scanStream) return;
+    if(!scanBusy && vid.videoWidth){
+      cv.width=vid.videoWidth; cv.height=vid.videoHeight; cx.drawImage(vid,0,0);
+      let code=null; try{ const d=cx.getImageData(0,0,cv.width,cv.height); code=window.jsQR&&jsQR(d.data,cv.width,cv.height); }catch(e){}
+      if(code&&code.data){ scanBusy=true; onSlip(code.data); }
+    }
+    scanRAF=requestAnimationFrame(loop);
+  };
+  scanRAF=requestAnimationFrame(loop);
+}
+function closeSlipScanner(){
+  if(scanRAF)cancelAnimationFrame(scanRAF); scanRAF=0;
+  if(scanStream){ scanStream.getTracks().forEach(t=>t.stop()); scanStream=null; }
+  document.getElementById('scanOverlay').style.display='none';
+}
+async function onSlip(payload){
+  const msg=document.getElementById('scanMsg'); msg.textContent='กำลังตรวจสอบสลิป…';
+  let r; try{ r=await verifySlip(payload,payAmount()); }catch(e){ r={ok:false,msg:(e&&e.message)||'error'}; }
+  if(r.ok){
+    closeSlipScanner();
+    document.getElementById('payStatus').textContent='✅ ชำระเงินสำเร็จ กำลังพิมพ์…';
+    startPrint();
+  }else{
+    msg.textContent='❌ '+(r.msg||'ตรวจสลิปไม่สำเร็จ')+' — ลองสแกนใหม่';
+    setTimeout(()=>{ scanBusy=false; }, 1500);
+  }
+}
+async function httpPostJSON(url,headers,body){
+  const CH=window.CapacitorHttp||(window.Capacitor&&Capacitor.Plugins&&Capacitor.Plugins.CapacitorHttp);
+  if(CH&&CH.post){
+    const r=await CH.post({url,headers,data:body});
+    let j=r.data; if(typeof j==='string'){ try{j=JSON.parse(j);}catch(e){} } return {status:r.status,json:j};
+  }
+  const r=await fetch(url,{method:'POST',headers,body:JSON.stringify(body)});
+  let j=null; try{j=await r.json();}catch(e){} return {status:r.status,json:j};
+}
+async function verifySlip(payload,amount){
+  const url='https://api.slipok.com/api/line/apikey/'+encodeURIComponent(slipBranch());
+  const {json}=await httpPostJSON(url,{'x-authorization':slipKey(),'Content-Type':'application/json'},
+    {data:payload, amount:amount, log:true});
+  if(json && json.success && json.data){
+    const paid=Number(json.data.amount);
+    if(!isFinite(paid) || Math.abs(paid-amount)<0.01) return {ok:true};
+    return {ok:false, msg:'ยอดโอนไม่ตรง (โอนมา '+paid+' ฿ ต้อง '+amount+' ฿)'};
+  }
+  const m=json&&(json.message||(json.data&&json.data.message));
+  return {ok:false, msg:m||'ตรวจสลิปไม่สำเร็จ (สลิปซ้ำ/ไม่ถูกต้อง)'};
 }
 
 let warnedNoCloud=false;
@@ -3409,10 +3572,17 @@ function photoFrame(){ try{return localStorage.getItem('photoFrame')||'none';}ca
 function setPhotoFrame(v){ try{localStorage.setItem('photoFrame',v);}catch(e){} }
 function beautyLevel(){ try{const v=localStorage.getItem('beautyLevel'); return v==null?2:(parseInt(v)||0);}catch(e){return 2;} }
 function openPrinterSettings(){
+  if(isKiosk()){ const pin=prompt('ใส่รหัสผู้ดูแล (PIN)'); if(pin===null) return; if(pin!==adminPin()){ alert('PIN ไม่ถูกต้อง'); return; } }
   const list=document.getElementById('deviceList');
   document.getElementById('printerSheet').classList.add('on');
   try{
     document.getElementById('shopInput').value=localStorage.getItem('shopName')||'';
+    const pp=document.getElementById('ppIdInput'); if(pp) pp.value=localStorage.getItem('ppId')||'';
+    const pr=document.getElementById('priceInput'); if(pr) pr.value=localStorage.getItem('pricePer')||'20';
+    const sk=document.getElementById('slipKeyInput'); if(sk) sk.value=localStorage.getItem('slipKey')||'';
+    const sb=document.getElementById('slipBranchInput'); if(sb) sb.value=localStorage.getItem('slipBranch')||'';
+    const ar=document.getElementById('autoResetInput'); if(ar) ar.value=localStorage.getItem('autoResetSec')||'60';
+    const pinp=document.getElementById('adminPinInput'); if(pinp) pinp.value=localStorage.getItem('adminPin')||'1234';
     const gs=document.getElementById('gammaSel'); if(gs) gs.value=localStorage.getItem('printGamma')||'0.72';
     const ss=document.getElementById('styleSel'); if(ss) ss.value=localStorage.getItem('slipStyle')||'receipt';
     const fsel=document.getElementById('filterSel'); if(fsel) fsel.value=localStorage.getItem('photoFilter')||'soft';
@@ -3443,6 +3613,8 @@ function resetAll(){
 
 /* ---------------- init ---------------- */
 renderGrid('all'); drawPreview();
+initKiosk();
 </script>
+<script src="jsqr.min.js"></script>
 </body>
 </html>
