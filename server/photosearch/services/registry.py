@@ -128,12 +128,14 @@ class GenerationRegistry:
             return EventReadiness(True, event, False, ptr.generationId, reason=f"load_error:{e}")
         if loaded is None:
             return EventReadiness(True, event, False, ptr.generationId, reason="loading")
+        # จำนวน "รูปที่พร้อมค้นหา" = เฉพาะรูปที่มีใบหน้า (status ok) ไม่รวม no_face
+        searchable = sum(1 for p in loaded.photos.values() if p.processingStatus == "ok")
         return EventReadiness(
             True,
             event,
             True,
             loaded.generation_id,
-            photo_count=loaded.manifest.photoCount,
+            photo_count=searchable,
             face_count=loaded.manifest.faceCount,
         )
 

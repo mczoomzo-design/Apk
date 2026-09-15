@@ -169,3 +169,35 @@ def admin_prepare_status(event_id: str, authorization: Optional[str] = Header(No
     import json
 
     return json.loads(raw.decode("utf-8"))
+
+
+# --------------------------- เสิร์ฟหน้าเว็บ (origin เดียวกัน) ---------------------------
+# ตั้ง WEB_DIST ชี้ไปยัง web/dist เพื่อให้ FastAPI เสิร์ฟทั้งหน้าเว็บและ API ที่ origin เดียว
+def _mount_web() -> None:
+    import os
+    from pathlib import Path
+
+    dist = os.environ.get("WEB_DIST")
+    if not dist:
+        return
+    dist_path = Path(dist)
+    index = dist_path / "index.html"
+    if not index.is_file():
+        return
+    from fastapi.responses import FileResponse
+    from fastapi.staticfiles import StaticFiles
+
+    app.mount("/assets", StaticFiles(directory=str(dist_path / "assets")), name="assets")
+
+    @app.get("/{full_path:path}")
+    def spa(full_path: str):
+        # ปล่อยเส้นทาง /api ให้ router อื่นจัดการ; ที่เหลือคืน index.html (SPA fallback)
+        if full_path.startswith("api/"):
+            raise HTTPException(404, "not found")
+        candidate = dist_path / full_path
+        if full_path and candidate.is_file():
+            return FileResponse(str(candidate))
+        return FileResponse(str(index))
+
+
+_mount_web()

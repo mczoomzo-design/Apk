@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "generationId": "gen-20260915050157",
+  "eventId": "demo",
+  "modelId": "mock-colorface",
+  "modelVersion": "1",
+  "preprocessingVersion": "mock-1",
+  "vectorDimension": 128,
+  "metric": "ip",
+  "normalization": "l2",
+  "photoCount": 60,
+  "faceCount": 124,
+  "checksums": {
+    "index.faiss": "d1b218fdc759aaf7441bdf72e901942728213308824e8a11850af2e6ecbd52c3",
+    "photos.json": "8e31ce2f36cd020b10e4754ef369b1ef7c8985994956360fd7fd2684d012fbd1",
+    "faces-map.json": "19cf279d6b3137dc740adc7f6b668e2b82d8f9a29d496ae5a8d27a1c06c32e1f"
+  },
+  "createdAt": "2026-09-15T05:01:57.718806+00:00"
+}

@@ -1,0 +1,13 @@
+{
+  "eventId": "demo",
+  "state": "done",
+  "total": 60,
+  "processed": 60,
+  "ok": 51,
+  "no_face": 9,
+  "failed": 0,
+  "generationId": "gen-20260915050157",
+  "activeGenerationId": "gen-20260915050157",
+  "message": null,
+  "updatedAt": "2026-09-15T05:01:57.722684+00:00"
+}
