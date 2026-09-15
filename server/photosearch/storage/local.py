@@ -62,6 +62,12 @@ class LocalStorage(Storage):
             checksum=_md5(data),
         )
 
+    def list_dirs(self, logical_prefix: str) -> list[str]:
+        base = self._abs(logical_prefix)
+        if not base.is_dir():
+            return []
+        return sorted(p.name for p in base.iterdir() if p.is_dir())
+
     def read_bytes(self, file_id: str) -> bytes:
         p = self._abs(file_id)
         if not p.is_file():

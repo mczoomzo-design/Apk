@@ -104,3 +104,46 @@ def test_not_ready_event(env):
     client = _client()
     r = client.get("/api/events/ghost")
     assert r.status_code == 404
+
+
+def test_admin_console_endpoints(env):
+    build_demo(env)
+    client = _client()
+    headers = {"Authorization": "Bearer test-admin"}
+
+    # list events
+    r = client.get("/api/admin/events", headers=headers)
+    assert r.status_code == 200
+    events = r.json()["events"]
+    assert any(e["eventId"] == "demo" and e["ready"] for e in events)
+
+    # full doc (admin)
+    r = client.get("/api/admin/events/demo/full", headers=headers)
+    assert r.status_code == 200
+    assert r.json()["originalsFolderId"]
+
+    # toggle public
+    r = client.post("/api/admin/events/demo/public?public=false", headers=headers)
+    assert r.status_code == 200
+    assert r.json()["public"] is False
+
+    # list requires auth
+    assert client.get("/api/admin/events").status_code == 401
+
+
+def test_admin_prepare_via_api(env):
+    import time as _t
+
+    build_demo(env)
+    client = _client()
+    headers = {"Authorization": "Bearer test-admin"}
+    r = client.post("/api/admin/events/demo/prepare", headers=headers)
+    assert r.status_code == 200
+    assert r.json()["started"] in (True, False)  # อาจกำลังรันอยู่
+    # รอ background เสร็จ
+    for _ in range(60):
+        st = client.get("/api/admin/events/demo/prepare-status", headers=headers).json()
+        if st.get("state") in ("done", "failed") and not st.get("running"):
+            break
+        _t.sleep(0.5)
+    assert st.get("state") == "done"

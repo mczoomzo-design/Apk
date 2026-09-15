@@ -5,7 +5,13 @@ from functools import lru_cache
 
 from ..config import Settings, get_settings
 from ..embedder import build_embedder
-from ..services import EventService, GenerationRegistry, MediaService, SearchService
+from ..services import (
+    EventService,
+    GenerationRegistry,
+    MediaService,
+    PrepareRunner,
+    SearchService,
+)
 from ..storage import build_storage
 
 
@@ -18,6 +24,7 @@ class AppContext:
         self.media = MediaService(self.storage, self.registry, settings)
         self.search = SearchService(self.registry, self.embedder, settings, self.media)
         self.events = EventService(self.storage, self.registry)
+        self.prepare_runner = PrepareRunner(self.storage, self.embedder, settings, self.registry)
 
 
 @lru_cache(maxsize=1)

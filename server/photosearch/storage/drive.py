@@ -228,6 +228,37 @@ class DriveStorage(Storage):
         folder = self._resolve_folder(parts, create=False)
         return self.list_folder(folder)
 
+    def list_dirs(self, logical_prefix: str) -> list[str]:
+        parts = [p for p in logical_prefix.split("/") if p]
+        try:
+            folder = self._resolve_folder(parts, create=False)
+        except NotFoundError:
+            return []
+        if folder is None:
+            return []
+        names: list[str] = []
+        page = None
+        while True:
+            res = (
+                self.svc.files()
+                .list(
+                    q=f"'{folder}' in parents and trashed = false and mimeType = '{FOLDER_MIME}'",
+                    spaces="drive",
+                    corpora="allDrives",
+                    includeItemsFromAllDrives=True,
+                    supportsAllDrives=True,
+                    fields="nextPageToken, files(name)",
+                    pageSize=1000,
+                    pageToken=page,
+                )
+                .execute()
+            )
+            names.extend(f["name"] for f in res.get("files", []))
+            page = res.get("nextPageToken")
+            if not page:
+                break
+        return sorted(names)
+
     def publish_current(self, event_id: str, generation_id: str, expected_revision: int) -> int:
         # หมายเหตุ: จุดเผยแพร่จริงควรทำผ่าน Apps Script (apps-script/Code.gs)
         # ที่นี่รองรับกรณีเรียกตรง โดยอ่าน-ตรวจ-เขียน (ยังไม่ atomic ระดับ Drive)

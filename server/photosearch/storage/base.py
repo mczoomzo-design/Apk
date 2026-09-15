@@ -69,6 +69,10 @@ class Storage(Protocol):
     def list_path(self, logical_prefix: str) -> Iterable[FileMeta]:
         ...
 
+    def list_dirs(self, logical_prefix: str) -> list[str]:
+        """คืนชื่อโฟลเดอร์ย่อยภายใต้ prefix (ใช้ลิสต์ eventId)"""
+        ...
+
     def read_json(self, logical_path: str) -> dict:
         return json.loads(self.read_bytes_by_path(logical_path).decode("utf-8"))
 

@@ -165,9 +165,78 @@ def admin_prepare_status(event_id: str, authorization: Optional[str] = Header(No
     try:
         raw = ctx.storage.read_path(f"events/{event_id}/processing/status.json")
     except NotFoundError:
-        return {"eventId": event_id, "state": "idle"}
+        return {"eventId": event_id, "state": "idle", "running": ctx.prepare_runner.is_running(event_id)}
     import json
 
+    data = json.loads(raw.decode("utf-8"))
+    data["running"] = ctx.prepare_runner.is_running(event_id)
+    return data
+
+
+@app.get("/api/admin/events")
+def admin_list_events(authorization: Optional[str] = Header(None), ctx: AppContext = Depends(get_context)):
+    _require_admin(authorization, ctx)
+    import json
+
+    out = []
+    for event_id in ctx.storage.list_dirs("events"):
+        try:
+            doc = json.loads(ctx.storage.read_path(f"events/{event_id}/event.json").decode("utf-8"))
+        except NotFoundError:
+            continue
+        r = ctx.registry.readiness(event_id)
+        out.append({
+            "eventId": event_id,
+            "title": doc.get("title"),
+            "status": doc.get("status"),
+            "public": doc.get("public"),
+            "ready": r.ready,
+            "photoCount": r.photo_count,
+            "generationId": r.generation_id,
+            "updatedAt": doc.get("updatedAt"),
+        })
+    return {"events": out}
+
+
+@app.get("/api/admin/events/{event_id}/full", response_model=EventDoc)
+def admin_get_event(event_id: str, authorization: Optional[str] = Header(None), ctx: AppContext = Depends(get_context)):
+    _require_admin(authorization, ctx)
+    import json
+
+    try:
+        raw = ctx.storage.read_path(f"events/{event_id}/event.json")
+    except NotFoundError:
+        raise HTTPException(404, "ไม่พบกิจกรรม")
+    return EventDoc(**json.loads(raw.decode("utf-8")))
+
+
+@app.post("/api/admin/events/{event_id}/public")
+def admin_set_public(event_id: str, public: bool = Query(...), authorization: Optional[str] = Header(None), ctx: AppContext = Depends(get_context)):
+    _require_admin(authorization, ctx)
+    return ctx.events.set_public(event_id, public).model_dump()
+
+
+@app.post("/api/admin/events/{event_id}/prepare")
+def admin_prepare(event_id: str, authorization: Optional[str] = Header(None), ctx: AppContext = Depends(get_context)):
+    _require_admin(authorization, ctx)
+    # ตรวจว่ามี event ก่อน
+    try:
+        ctx.storage.read_path(f"events/{event_id}/event.json")
+    except NotFoundError:
+        raise HTTPException(404, "ไม่พบกิจกรรม")
+    started = ctx.prepare_runner.start(event_id)
+    return {"eventId": event_id, "started": started, "running": ctx.prepare_runner.is_running(event_id)}
+
+
+@app.get("/api/admin/events/{event_id}/failures")
+def admin_failures(event_id: str, authorization: Optional[str] = Header(None), ctx: AppContext = Depends(get_context)):
+    _require_admin(authorization, ctx)
+    import json
+
+    try:
+        raw = ctx.storage.read_path(f"events/{event_id}/processing/failures/failures.json")
+    except NotFoundError:
+        return {"items": []}
     return json.loads(raw.decode("utf-8"))
 
 

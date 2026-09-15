@@ -18,7 +18,7 @@
 |---|---|---|
 | เส้นทางข้อมูลครบวงจร (Drive→index→selfie→match→preview→download) | ✅ รันได้จริง | 14 เทสต์ผ่าน + สกรีนช็อตหน้าเว็บจริง |
 | ความถูกต้องของ pipeline (dedupe/pagination/สถานะ) | ✅ พิสูจน์ | `tests/` precision/recall = 1.0 บนข้อมูลจำลอง |
-| หน้าเว็บภาษาไทย (มือถือ) | ✅ build + รันจริง | `docs/screenshots/` |
+| หน้าเว็บภาษาไทย (มือถือ) + Admin console | ✅ build + รันจริง | `docs/screenshots/` |
 | เวลาเทียบเวกเตอร์ใน RAM | ✅ วัดจริง (เครื่องนี้) | p95 ~1.9ms@1,800 / ~3.7ms@5,000 (dim=512) |
 | โหลด API (mock embedder, 1 instance) | ✅ วัดจริง | 50 users ทยอย: search p95 ~400ms, 0 fail |
 | **ความแม่นยำโมเดลจริง (InsightFace) กับใบหน้าจริง** | ⛔ ยังไม่พิสูจน์ | ต้องมีภาพจริงที่ได้รับอนุญาต — ดู `docs/testing.md` |
