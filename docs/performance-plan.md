@@ -29,7 +29,14 @@
 → ต่ำกว่าเป้า 300 ms มาก สำหรับ exact search ขนาดนี้ (ยังไม่ต้องใช้ approximate search)
 **ข้อจำกัด:** ไม่รวมถอดรหัสเซลฟี/รันโมเดล/เครือข่าย/ดึง Drive; ขึ้นกับ CPU; ยังไม่วัดพร้อมกันหลายคำค้น
 
-### 2) โหลด API เบื้องต้น — Locust, **mock embedder**, uvicorn 1 worker
+### 2) เวลา embed ด้วยโมเดลจริง (InsightFace buffalo_l, CPU) — วัดจริง
+`scripts/accuracy_faces.py` บนภาพจริง: **~436 ms/รูป** บน CPU ของ container นี้
+- ผลกระทบต่อ **worker**: 1,800 รูป ≈ 13 นาที, 5,000 รูป ≈ 37 นาที (single-thread, CPU) — พิจารณา batch/GPU
+- ผลกระทบต่อ **ค้นหา**: การ embed เซลฟีกินเวลานี้ต่อคำค้น (เป็นตัวครอบเวลา ไม่ใช่การเทียบเวกเตอร์)
+  → เป้าหมาย "API ค้นหา p95 ≤ 3s" ต้องเผื่อเวลานี้; พิจารณา GPU/instance แรงขึ้นถ้าจำเป็น
+- mock (ข้อ 3) เร็วกว่ามากและ **ไม่สะท้อน** ต้นทุนนี้
+
+### 3) โหลด API เบื้องต้น — Locust, **mock embedder**, uvicorn 1 worker
 50 users ทยอย (spawn 10/s, 20s) บนข้อมูลจำลอง 60 รูป:
 
 | endpoint | p50 | p95 | p99 | fail |

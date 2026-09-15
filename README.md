@@ -21,8 +21,9 @@
 | หน้าเว็บภาษาไทย (มือถือ) + Admin console | ✅ build + รันจริง | `docs/screenshots/` |
 | เวลาเทียบเวกเตอร์ใน RAM | ✅ วัดจริง (เครื่องนี้) | p95 ~1.9ms@1,800 / ~3.7ms@5,000 (dim=512) |
 | โหลด API (mock embedder, 1 instance) | ✅ วัดจริง | 50 users ทยอย: search p95 ~400ms, 0 fail |
-| **ความแม่นยำโมเดลจริง (InsightFace) กับใบหน้าจริง** | ⛔ ยังไม่พิสูจน์ | ต้องมีภาพจริงที่ได้รับอนุญาต — ดู `docs/testing.md` |
-| **Google Drive backend จริง** | ⛔ ยังไม่ทดสอบ | ต้องมี Shared Drive + service account — ดู `docs/status.md` |
+| **InsightFace จริง (buffalo_l) บนภาพจริงชุดเล็ก** | ✅ พิสูจน์แล้ว | verification acc 1.0 / search P·R 1.0; cosine same 0.76 vs diff 0.01 |
+| ความแม่นยำบน **ภาพงานจริง** (เบลอ/หันข้าง/ภาพกลุ่ม) | ⛔ ยังไม่วัด | ต้องมีภาพงานจริง — ดู `docs/status.md` |
+| **Google Drive backend จริง** | ⛔ รอ credential | มี `scripts/drive_selftest.py` พร้อมรัน — ดู `docs/status.md` |
 | Deploy Cloud Run จริง | ⛔ ยังไม่ทำ (รอคำสั่ง) | ขั้นตอนใน `docs/deploy.md` |
 
 รายละเอียด "อะไรพิสูจน์แล้ว/ยังไม่" อยู่ที่ **[docs/status.md](docs/status.md)**

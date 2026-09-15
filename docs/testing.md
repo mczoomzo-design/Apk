@@ -29,7 +29,23 @@ EVENT=demo SELFIE=./selfie.jpg locust -f tests/load/locustfile.py \
   --host http://localhost:8000 --users 50 --spawn-rate 10 --run-time 90s --headless
 ```
 
-## ทดสอบความแม่นยำโมเดลจริง (ต้องทำก่อนใช้งานจริง)
+## ทดสอบความแม่นยำ InsightFace จริง (ทำแล้วบางส่วน — ดู docs/status.md)
+```bash
+pip install insightface onnxruntime scikit-learn
+# ชุดภาพจริงที่ได้รับอนุญาต เช่น DeepFace test set (MIT, งานวิจัย):
+git clone --depth 1 https://github.com/serengil/deepface /tmp/deepface
+cd server && PYTHONPATH=. EMBEDDER=insightface python scripts/accuracy_faces.py \
+  --dataset /tmp/deepface/tests/unit/dataset --pairs /tmp/deepface/tests/unit/dataset/master.csv
+```
+วัด verification 1:1 (distribution + threshold) และ search 1:N (precision/recall) ด้วยโค้ดจริง
+
+## ทดสอบ Google Drive จริง (เมื่อมี credential)
+```bash
+export STORAGE_BACKEND=drive DRIVE_ROOT_FOLDER_ID=xxx GOOGLE_APPLICATION_CREDENTIALS=/secure/sa.json
+cd server && PYTHONPATH=. python scripts/drive_selftest.py
+```
+
+## ทดสอบความแม่นยำบนภาพงานจริง (ต้องทำก่อนใช้งานจริง)
 1. `EMBEDDER=insightface`
 2. เตรียมชุดภาพจริง **ที่ได้รับอนุญาตให้ใช้** มี ground truth (ใครอยู่ในรูปไหน)
 3. **แยกรูปตั้ง threshold ออกจากรูปทดสอบ** (อย่าปรับ threshold บนชุดที่วัดผล)
