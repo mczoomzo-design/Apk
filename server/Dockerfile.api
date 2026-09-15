@@ -1,0 +1,28 @@
+# API ผู้ใช้/ผู้ดูแล — เสิร์ฟหน้าเว็บ (origin เดียวกัน) + endpoint ค้นหา/รูป
+# หมายเหตุ Cloud Run: filesystem เป็น in-memory และหายเมื่อ instance หยุด
+# ข้อมูลกิจกรรมถาวรอยู่ Google Drive เท่านั้น แคช/ไฟล์ชั่วคราวใช้ RAM ตามที่กำหนด
+FROM python:3.11-slim
+
+ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
+WORKDIR /app
+
+# ระบบสำหรับ Pillow/faiss
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1 libglib2.0-0 && rm -rf /var/lib/apt/lists/*
+
+COPY server/requirements.txt ./requirements.txt
+RUN pip install -r requirements.txt \
+    && pip install "google-api-python-client>=2.100" "google-auth>=2.28"
+
+COPY server/ ./server/
+# หน้าเว็บ build แล้ว (ตั้ง WEB_DIST ให้ตรง) — คัดลอกถ้ามี
+COPY web/dist/ ./web/dist/
+
+WORKDIR /app/server
+ENV WEB_DIST=/app/web/dist \
+    STORAGE_BACKEND=drive \
+    EMBEDDER=insightface
+
+# Cloud Run ส่ง PORT มาให้
+ENV PORT=8080
+CMD exec uvicorn photosearch.api.app:app --host 0.0.0.0 --port ${PORT} --workers 1

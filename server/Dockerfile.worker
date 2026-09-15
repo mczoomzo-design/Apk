@@ -1,0 +1,23 @@
+# Worker เตรียมรูป — รันแยกจาก API ผู้ใช้ (ไม่แย่งทรัพยากรตอนค้นหา)
+# เหมาะกับ Cloud Run Job (โหมด once) หรือ Service ที่รับคิวงาน
+FROM python:3.11-slim
+
+ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1 libglib2.0-0 && rm -rf /var/lib/apt/lists/*
+
+COPY server/requirements.txt ./requirements.txt
+RUN pip install -r requirements.txt \
+    && pip install "google-api-python-client>=2.100" "google-auth>=2.28" \
+    && pip install "insightface>=0.7" "onnxruntime>=1.17"
+
+COPY server/ ./server/
+WORKDIR /app/server
+ENV STORAGE_BACKEND=drive EMBEDDER=insightface
+
+# ตัวอย่าง: ประมวลผลกิจกรรมเดียวแล้วจบ (Cloud Run Job)
+# override ด้วย --event <EVENT_ID> ตอนสั่งรัน
+ENTRYPOINT ["python", "-m", "photosearch.worker.run"]
+CMD ["once", "--event", "REPLACE_ME"]

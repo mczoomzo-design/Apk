@@ -1,0 +1,33 @@
+# รันในเครื่องเพื่อทดสอบ (local storage + mock embedder) โดยไม่ต้องมี Drive/credential
+# ใช้จริงบน Cloud Run ให้ตั้ง STORAGE_BACKEND=drive, EMBEDDER=insightface (ดู docs/deploy.md)
+services:
+  api:
+    build:
+      context: .
+      dockerfile: server/Dockerfile.api
+    environment:
+      STORAGE_BACKEND: local
+      EMBEDDER: mock
+      LOCAL_ROOT: /data
+      ADMIN_TOKEN: dev-admin
+      MEDIA_TOKEN_SECRET: dev-secret
+      WEB_DIST: /app/web/dist
+      PORT: "8080"
+    volumes:
+      - ./server/_data:/data
+    ports:
+      - "8080:8080"
+
+  # ตัวอย่าง worker (โหมด once) — สั่งด้วย: docker compose run --rm worker once --event demo
+  worker:
+    build:
+      context: .
+      dockerfile: server/Dockerfile.worker
+    environment:
+      STORAGE_BACKEND: local
+      EMBEDDER: mock
+      LOCAL_ROOT: /data
+    volumes:
+      - ./server/_data:/data
+    entrypoint: ["python", "-m", "photosearch.worker.run"]
+    command: ["once", "--event", "demo"]

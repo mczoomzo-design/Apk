@@ -1,5 +1,6 @@
 # data / runtime (ข้อมูลกิจกรรมจริงอยู่ Google Drive ไม่ commit)
 server/_data/
+server/_demo/
 **/__pycache__/
 *.pyc
 .pytest_cache/
