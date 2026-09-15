@@ -1,19 +1,32 @@
 # Space Fleet Commander (ผู้บัญชาการกองยานอวกาศ)
 
-เกมมือถือ Android แนว **RTS อวกาศ มุมมองด้านบน** — สร้างและบัญชาการกองยานของคุณ
-สำรวจกาแล็กซี วาร์ปข้ามดวงดาว รับภารกิจ โจมตีศัตรู และบุกยึดสถานีอวกาศ
+เกมมือถือ Android แนว **RTS อวกาศ มุมมองด้านบน** สไตล์ **Battlevoid: Harbinger** —
+บัญชาการกองยานบุกฝ่าเซกเตอร์ด้วยการ **JUMP ข้ามจุด** ไปยังยานแม่ศัตรู
+คอยระวัง**ศัตรูวาร์ปโผล่มาซุ่มโจมตีกลางสนามรบ** และหมั่น**อัปเกรดป้อมปืน/เทคโนโลยี +
+จัดรูปแบบกองยาน**ให้พร้อมรบเสมอ
 
-> A top-down real-time-strategy space game for Android. Build a fleet, warp across a
-> galaxy of star systems, take contracts, fight varied enemy ships, and assault space
-> stations. Written in Kotlin on a custom `SurfaceView` game engine — no external game
-> engine, so it builds straight in Android Studio.
+> A top-down RTS space roguelite for Android in the spirit of **Battlevoid: Harbinger**.
+> Command a fleet, jump node-to-node across a sector toward the enemy mothership, and
+> survive **mid-battle warp-in ambushes** while upgrading turrets, technology and
+> formation. Written in Kotlin on a custom `SurfaceView` engine — builds straight in
+> Android Studio.
 
 ---
 
 ## ฟีเจอร์ในเกม (Features)
 
-- **แผนที่กาแล็กซีแบบดวงดาว** — แต่ละระบบเป็นโหนดบนแผนที่ วาร์ปได้เฉพาะระบบที่อยู่ในระยะ
-  (ลากเพื่อเลื่อน, หุบนิ้วเพื่อซูม)
+- **แผนที่เซกเตอร์แบบ Jump-map (สไตล์ Harbinger/FTL)** — เดินหน้าผ่านคอลัมน์ของโหนด
+  ด้วยการ **JUMP** ไปยังโหนดที่เชื่อมถัดไป เป้าหมายคือ **ยานแม่ศัตรู (BOSS)** ท้ายเซกเตอร์
+  เคลียร์บอสแล้วไปเซกเตอร์ถัดไป (ยากขึ้นเรื่อยๆ)
+- **ประเภทโหนด**: การรบ ⚔ / ศัตรูชั้นสูง ☠ / สถานีพันธมิตร ⌂ / แหล่งทรัพยากร ◆ /
+  พื้นที่ไม่ทราบ ? / ยานแม่ศัตรู ✷
+- **⚠ การซุ่มโจมตีด้วยการวาร์ป (จุดเด่นหลัก)** — ระหว่างรบ ศัตรูสามารถ **วาร์ปโผล่เข้ามา
+  แบบไม่ทันตั้งตัว** (มีวงพอร์ทัลเตือนก่อนสั้นๆ) และอาจโผล่ **ด้านหลังกองยาน**ของคุณได้
+  การ JUMP แต่ละครั้งก็มีโอกาสถูกดักซุ่มโจมตี ต้องรอดจากทุกระลอกจึงจะชนะ
+- **เรือธง (Flagship)** — ยานบัญชาการมีสัญลักษณ์ทอง ถ้าถูกทำลาย = จบเกม
+- **เทคโนโลยี & วิจัย (Research ⚙)** — สะสมแต้มวิจัยจากการรบ แล้วอัปเกรดระดับโลก:
+  ป้อมปืน (ดาเมจ), อัตราการยิง, โล่, เกราะตัวถัง, เครื่องยนต์, นาโนซ่อมบำรุง
+- **รูปแบบกองยาน (Formation)** — Line / Wedge / Wall / Echelon มีผลต่อการจัดวางก่อนรบ
 - **ซื้อ/สร้างกองยานเริ่มต้นได้** ที่อู่ต่อยาน แล้วขยายกองยานได้อิสระ
 - **ยาน 7 ประเภท** แต่ละแบบมีบทบาทต่างกัน:
   - `ยานลาดตระเวน (Scout)` — เบา เร็ว เซนเซอร์ไกล
@@ -37,10 +50,10 @@
 
 ## การควบคุม (Controls)
 
-**แผนที่กาแล็กซี**
-- แตะดวงดาวเพื่อเลือก → กด **วาร์ป** เพื่อเดินทาง (ถ้ามีศัตรูจะเข้าสู่การรบทันที)
+**แผนที่เซกเตอร์**
+- แตะโหนดเพื่อดูข้อมูล → กด **JUMP** เพื่อกระโดดไปโหนดที่เชื่อมถัดไป (มีศัตรู = เข้าสู่การรบ)
 - ลาก = เลื่อนแผนที่, หุบ/กางนิ้ว = ซูม
-- ปุ่ม **เข้าสถานี / บุกยึดสถานี / ปรับแต่งยาน / ภารกิจ**
+- ปุ่ม **เข้าสถานี / ปรับแต่งยาน / เทคโนโลยี / รูปแบบ / เมนู**
 
 **การรบ (RTS)**
 - แตะยานของคุณ = เลือก, แตะที่ว่าง = สั่งเคลื่อนที่, แตะศัตรู = สั่งโจมตี
@@ -85,14 +98,14 @@ app/src/main/java/com/zoomzo/spacefleet/
 ├─ model/                   # ข้อมูลเกม + การบันทึก
 │  ├─ Enums / Defs / Catalog#   นิยามยาน อาวุธ โมดูล (แคตาล็อกกลาง)
 │  ├─ Ship.kt               #   ยานของผู้เล่น (สเตตคำนวณจากอุปกรณ์ที่ติด)
-│  ├─ Galaxy.kt             #   ระบบดาว + การสุ่มสร้างกาแล็กซี + reachability
-│  ├─ Mission.kt / GameState#   ภารกิจ, เศรษฐกิจ, กองยาน, ชื่อเสียง
+│  ├─ Galaxy.kt             #   เซกเตอร์แบบโหนด+คอลัมน์, jump links, encounter, บอส
+│  ├─ GameState.kt          #   เศรษฐกิจ, กองยาน, วิจัย/เทค, รูปแบบ, เรือธง, เลื่อนเซกเตอร์
 │  └─ SaveManager.kt        #   เซฟ/โหลด JSON
 ├─ combat/                  # การจำลองการรบ
 │  ├─ CombatShip / Projectile / Fighter
-│  └─ CombatWorld.kt        #   ฟิสิกส์ + AI + ดาเมจ + บุกยึด + ผลการรบ
+│  └─ CombatWorld.kt        #   ฟิสิกส์ + AI + วาร์ป-อิน + เทคโบนัส + รูปแบบ + ผลการรบ
 └─ screens/                 # หน้าจอเกม
-   ├─ MainMenuScreen, GalaxyMapScreen, StationScreen,
+   ├─ MainMenuScreen, GalaxyMapScreen, StationScreen, TechScreen,
    ├─ ShipyardScreen, LoadoutScreen, CombatScreen, Hud
 ```
 

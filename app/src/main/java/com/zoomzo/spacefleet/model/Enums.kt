@@ -49,6 +49,35 @@ enum class ModuleType(val displayName: String) {
     REPAIR("หน่วยซ่อมบำรุง")
 }
 
+/** Type of encounter waiting at a sector node (Harbinger-style jump map). */
+enum class EncounterType(val displayName: String) {
+    START("จุดเริ่มต้น"),
+    COMBAT("การรบ"),
+    ELITE("ศัตรูชั้นสูง"),
+    STATION("สถานีพันธมิตร"),
+    RESOURCE("แหล่งทรัพยากร"),
+    UNKNOWN("พื้นที่ไม่ทราบ"),
+    BOSS("ยานแม่ศัตรู")
+}
+
+/** Global technology upgrades bought with research points. */
+enum class TechType(val displayName: String, val desc: String, val maxLevel: Int, val baseCost: Int) {
+    TURRET_DAMAGE("อัปเกรดป้อมปืน", "เพิ่มความเสียหายอาวุธทุกลำ +12%/ระดับ", 6, 3),
+    FIRE_RATE("ระบบเล็งอัตโนมัติ", "เพิ่มอัตราการยิง +8%/ระดับ", 6, 3),
+    SHIELD_TECH("เทคโนโลยีโล่", "เพิ่มพลังโล่ +15%/ระดับ", 6, 3),
+    HULL_TECH("โครงสร้างเสริม", "เพิ่มพลังเกราะตัวถัง +12%/ระดับ", 6, 3),
+    ENGINE_TECH("ขับเคลื่อนขั้นสูง", "เพิ่มความเร็ว/การเลี้ยว +10%/ระดับ", 5, 3),
+    REPAIR_TECH("นาโนซ่อมบำรุง", "ซ่อมตัวถังระหว่างรบ +2/วินาที/ระดับ", 5, 4)
+}
+
+/** Fleet battle formation, chosen before engagements. */
+enum class Formation(val displayName: String) {
+    LINE("แนวเส้น (Line)"),
+    WEDGE("หัวลูกศร (Wedge)"),
+    WALL("กำแพง (Wall)"),
+    ECHELON("เฉียง (Echelon)")
+}
+
 enum class MissionType(val displayName: String) {
     PATROL("ลาดตระเวน"),
     ASSAULT("โจมตีกองยานศัตรู"),

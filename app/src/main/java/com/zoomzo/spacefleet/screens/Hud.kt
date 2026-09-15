@@ -12,8 +12,9 @@ object Hud {
         p.fillRect(0f, 0f, p.width, h, Palette.bgPanel)
         p.line(0f, h, p.width, h, Palette.strokeSoft, p.s(1.5f))
         p.text("₡ ${state.credits}", p.s(16f), h * 0.62f, p.s(18f), Palette.accentWarm, bold = true)
-        p.text("วัน ${state.day}", p.s(150f), h * 0.62f, p.s(15f), Palette.textDim)
-        p.text("พลัง ${state.fleetPower()}", p.s(240f), h * 0.62f, p.s(15f), Palette.textDim)
+        p.text("⚙ ${state.research}", p.s(150f), h * 0.62f, p.s(16f), Palette.accent, bold = true)
+        p.text("เซกเตอร์ ${state.galaxy.sectorNumber}", p.s(240f), h * 0.62f, p.s(14f), Palette.textDim)
+        p.text("พลัง ${state.fleetPower()}", p.s(370f), h * 0.62f, p.s(14f), Palette.textDim)
         p.text(subtitle, p.width - p.s(16f), h * 0.62f, p.s(15f),
             Palette.textPrimary, Paint.Align.RIGHT, bold = true)
     }

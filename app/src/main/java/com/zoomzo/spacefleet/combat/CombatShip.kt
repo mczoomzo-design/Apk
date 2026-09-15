@@ -5,10 +5,12 @@ import com.zoomzo.spacefleet.model.ShipClass
 import com.zoomzo.spacefleet.model.WeaponDef
 import com.zoomzo.spacefleet.util.Vec2
 
-/** One weapon mount with its own cooldown timer. */
+/** One weapon mount with its own cooldown timer and tech multipliers. */
 class WeaponMount(val def: WeaponDef) {
     var cooldown = 0f
-    val interval: Float get() = 1f / def.fireRate
+    var dmgMult = 1f
+    var rateMult = 1f
+    val interval: Float get() = 1f / (def.fireRate * rateMult)
 }
 
 /**

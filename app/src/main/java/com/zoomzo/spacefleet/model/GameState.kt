@@ -12,11 +12,17 @@ import kotlin.random.Random
 class GameState private constructor() {
 
     var credits: Int = 0
+    var research: Int = 0
     var day: Int = 1
     lateinit var galaxy: Galaxy
 
     val fleet: MutableList<Ship> = mutableListOf()
     private var nextShipId = 1
+
+    /** The command ship. If it is lost, the campaign ends. */
+    var flagshipId: Int = -1
+    var formation: Formation = Formation.WEDGE
+    val techLevels: MutableMap<TechType, Int> = mutableMapOf()
 
     /** Unequipped gear the player owns, keyed by def id -> count. */
     val ownedWeapons: MutableMap<String, Int> = mutableMapOf()
@@ -36,6 +42,50 @@ class GameState private constructor() {
     fun canAfford(cost: Int) = credits >= cost
     fun spend(cost: Int): Boolean { if (credits < cost) return false; credits -= cost; return true }
     fun earn(amount: Int) { credits += amount }
+    fun earnResearch(amount: Int) { research += amount }
+
+    // ---------- Technology ----------
+
+    fun techLevel(t: TechType): Int = techLevels[t] ?: 0
+    fun techCost(t: TechType): Int = t.baseCost * (techLevel(t) + 1)
+    fun canUpgradeTech(t: TechType): Boolean =
+        techLevel(t) < t.maxLevel && research >= techCost(t)
+
+    fun buyTech(t: TechType): Boolean {
+        if (!canUpgradeTech(t)) return false
+        research -= techCost(t)
+        techLevels[t] = techLevel(t) + 1
+        return true
+    }
+
+    fun techBonus(): TechBonus = TechBonus(
+        damageMult = 1f + 0.12f * techLevel(TechType.TURRET_DAMAGE),
+        fireRateMult = 1f + 0.08f * techLevel(TechType.FIRE_RATE),
+        shieldMult = 1f + 0.15f * techLevel(TechType.SHIELD_TECH),
+        hullMult = 1f + 0.12f * techLevel(TechType.HULL_TECH),
+        engineMult = 1f + 0.10f * techLevel(TechType.ENGINE_TECH),
+        repairFlat = 2f * techLevel(TechType.REPAIR_TECH)
+    )
+
+    // ---------- Flagship & sector ----------
+
+    fun flagshipAlive(): Boolean = fleet.any { it.id == flagshipId }
+    val flagship: Ship? get() = fleet.firstOrNull { it.id == flagshipId }
+
+    /** Reward on entering a non-combat resource/unknown node. */
+    fun grantNodeReward(node: StarSystem) {
+        if (node.rewardCredits > 0) earn(node.rewardCredits)
+        if (node.rewardResearch > 0) earnResearch(node.rewardResearch)
+    }
+
+    fun jumpAmbushChance(): Float = (0.16f + 0.05f * galaxy.sectorNumber).coerceAtMost(0.6f)
+
+    fun advanceSector(rng: Random = Random(System.nanoTime())) {
+        val next = galaxy.sectorNumber + 1
+        galaxy = Galaxy.generate(next, rng)
+        earn(500 + next * 200)
+        earnResearch(4 + next)
+    }
 
     // ---------- Fleet ----------
 
@@ -199,12 +249,14 @@ class GameState private constructor() {
     // ---------- Serialization ----------
 
     fun toJson(): JSONObject = JSONObject().apply {
-        put("credits", credits); put("day", day); put("nextShipId", nextShipId)
-        put("nextMissionId", nextMissionId)
+        put("credits", credits); put("research", research); put("day", day)
+        put("nextShipId", nextShipId); put("nextMissionId", nextMissionId)
+        put("flagshipId", flagshipId); put("formation", formation.name)
         put("galaxy", galaxy.toJson())
         put("fleet", JSONArray().also { arr -> fleet.forEach { arr.put(it.toJson()) } })
         put("weapons", JSONObject(ownedWeapons as Map<*, *>))
         put("modules", JSONObject(ownedModules as Map<*, *>))
+        put("tech", JSONObject().also { r -> techLevels.forEach { (k, v) -> r.put(k.name, v) } })
         put("rep", JSONObject().also { r -> reputation.forEach { (k, v) -> r.put(k.name, v) } })
         put("missions", JSONArray().also { arr -> missions.forEach { arr.put(it.toJson()) } })
     }
@@ -212,35 +264,47 @@ class GameState private constructor() {
     companion object {
         fun newGame(rng: Random = Random(System.nanoTime())): GameState {
             val gs = GameState()
-            gs.credits = 9000
-            gs.galaxy = Galaxy.generate(rng)
+            gs.credits = 6000
+            gs.research = 4
+            gs.galaxy = Galaxy.generate(1, rng)
+            gs.formation = Formation.WEDGE
 
             // Free starter flagship so the player can move and fight immediately.
-            val flag = Ship("frigate", "เรือธง", gs.nextShipId++)
+            val flag = Ship("frigate", "เรือธง (Flagship)", gs.nextShipId++)
             flag.equipWeapon(0, "laser_mk1")
             flag.equipWeapon(1, "autocannon")
             flag.equipModule(0, "shield_s")
             gs.fleet.add(flag)
+            gs.flagshipId = flag.id
 
-            // Some starter inventory to tinker with in the loadout screen.
+            // A light escort so the fleet feels like a fleet from the start.
+            val escort = Ship("interceptor", "คุ้มกัน-1", gs.nextShipId++)
+            escort.equipWeapon(0, "autocannon")
+            gs.fleet.add(escort)
+
             gs.addWeapon("laser_mk1"); gs.addModule("armor_plate")
-
-            gs.refreshMissions(rng)
             return gs
         }
 
         fun fromJson(o: JSONObject): GameState {
             val gs = GameState()
             gs.credits = o.getInt("credits")
+            gs.research = o.optInt("research", 0)
             gs.day = o.optInt("day", 1)
             gs.nextShipId = o.optInt("nextShipId", 1)
             gs.nextMissionId = o.optInt("nextMissionId", 1)
+            gs.flagshipId = o.optInt("flagshipId", -1)
+            gs.formation = Formation.valueOf(o.optString("formation", "WEDGE"))
             gs.galaxy = Galaxy.fromJson(o.getJSONObject("galaxy"))
             o.getJSONArray("fleet").let { arr ->
                 for (i in 0 until arr.length()) gs.fleet.add(Ship.fromJson(arr.getJSONObject(i)))
             }
+            if (gs.flagshipId == -1) gs.flagshipId = gs.fleet.firstOrNull()?.id ?: -1
             o.optJSONObject("weapons")?.let { w -> w.keys().forEach { gs.ownedWeapons[it] = w.getInt(it) } }
             o.optJSONObject("modules")?.let { m -> m.keys().forEach { gs.ownedModules[it] = m.getInt(it) } }
+            o.optJSONObject("tech")?.let { tj ->
+                tj.keys().forEach { k -> gs.techLevels[TechType.valueOf(k)] = tj.getInt(k) }
+            }
             o.optJSONObject("rep")?.let { r ->
                 r.keys().forEach { k -> gs.reputation[Faction.valueOf(k)] = r.getInt(k) }
             }

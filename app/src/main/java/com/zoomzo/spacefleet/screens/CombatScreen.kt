@@ -19,11 +19,15 @@ import kotlin.math.sin
 class CombatScreen(
     game: Game,
     private val system: StarSystem,
-    private val invasion: Boolean
+    private val invasion: Boolean,
+    private val ambush: Boolean = false
 ) : Screen(game) {
 
     private val state get() = game.state
-    private val world = CombatWorld(state.fleet, system, invasion)
+    private val world = CombatWorld(
+        state.fleet, system, invasion, state.techBonus(), state.formation, ambush || system.isAmbush
+    )
+    private var gainedResearch = 0
     private val cam = Camera()
     private var camInit = false
 
@@ -84,10 +88,37 @@ class CombatScreen(
                 x + cos(f.angle - 2.5f) * r, y + sin(f.angle - 2.5f) * r, f.color)
         }
 
+        drawWarpPortals(p)
         for (sh in world.ships) if (sh.alive) drawShip(p, sh)
 
         drawHud(p)
+        drawWarpWarning(p)
         if (ended) drawOutcome(p)
+    }
+
+    /** Telegraphed warp portals where hostile reinforcements are about to jump in. */
+    private fun drawWarpPortals(p: Painter) {
+        for (w in world.waves) {
+            if (!w.portalVisible) continue
+            val x = cam.worldToScreenX(w.pos.x); val y = cam.worldToScreenY(w.pos.y)
+            val base = s(46f) * cam.zoom.coerceAtLeast(0.5f)
+            val r = base * (0.4f + w.progress)
+            val a = (140 * (0.4f + w.progress * 0.6f)).toInt()
+            p.ringStroke(x, y, r, Palette.withAlpha(Palette.pirate, a), s(2.5f))
+            p.ringStroke(x, y, r * 0.6f, Palette.withAlpha(Palette.warn, a), s(1.5f))
+            p.text("⚠", x, y + s(6f), s(20f), Palette.withAlpha(Palette.bad, a), Paint.Align.CENTER, true)
+        }
+    }
+
+    private fun drawWarpWarning(p: Painter) {
+        if (world.lastWarpWarning <= 0f || ended) return
+        val blink = ((world.lastWarpWarning * 4f).toInt() % 2 == 0)
+        if (!blink) return
+        val msg = "⚠ ศัตรูกำลังวาร์ปเข้ามา!"
+        val tw = p.textWidth(msg, s(20f), true)
+        val bw = tw + s(40f)
+        p.fillRound((vw - bw) / 2f, s(54f), bw, s(38f), s(8f), Palette.withAlpha(Palette.bad, 60))
+        p.text(msg, vw / 2f, s(80f), s(20f), Palette.bad, Paint.Align.CENTER, true)
     }
 
     private fun drawGrid(p: Painter) {
@@ -141,6 +172,13 @@ class CombatScreen(
         }
         if (sh.isStation && sh.stationTroops > 0)
             p.text("พลรบ ${sh.stationTroops}", x, y + r + s(16f), s(12f), Palette.enemy, Paint.Align.CENTER)
+
+        // Flagship marker (a gold diamond above the command ship).
+        if (sh.source != null && sh.source.id == state.flagshipId) {
+            val dy = by - s(10f)
+            p.triangle(x, dy - s(6f), x - s(5f), dy, x + s(5f), dy, Palette.accentWarm)
+            p.triangle(x, dy + s(6f), x - s(5f), dy, x + s(5f), dy, Palette.accentWarm)
+        }
     }
 
     private fun drawHud(p: Painter) {
@@ -151,8 +189,9 @@ class CombatScreen(
         p.text(obj, s(14f), h * 0.64f, s(15f), Palette.accent, bold = true)
         val myShips = world.playerShipsAlive()
         val enemy = world.ships.count { it.team == 1 && it.alive }
-        p.text("ยานของเรา: $myShips   ศัตรู: $enemy", vw - s(14f), h * 0.64f, s(14f),
-            Palette.textPrimary, Paint.Align.RIGHT)
+        val incoming = if (world.pendingWaves) "  ⚠วาร์ป:${world.waves.size}" else ""
+        p.text("ยานของเรา: $myShips   ศัตรู: $enemy$incoming", vw - s(14f), h * 0.64f, s(14f),
+            if (world.pendingWaves) Palette.warn else Palette.textPrimary, Paint.Align.RIGHT)
         if (invasion && world.station != null)
             p.text("สถานะสถานี: ${(world.station!!.hullFraction * 100).toInt()}%",
                 vw / 2f, h * 0.64f, s(13f), Palette.warn, Paint.Align.CENTER)
@@ -178,9 +217,12 @@ class CombatScreen(
         val title = if (win) "ชัยชนะ!" else "พ่ายแพ้"
         p.text(title, vw / 2f, vh * 0.4f, s(40f), if (win) Palette.good else Palette.bad,
             Paint.Align.CENTER, true)
-        val sub = if (win) "กวาดล้างศัตรูสำเร็จ +₡${world.salvageCredits} จากซากยาน"
+        val sub = if (win) "กวาดล้างศัตรูสำเร็จ  +₡${world.salvageCredits}  +${world.researchReward} วิจัย"
             else "กองยานถูกทำลายในสมรภูมิ"
         p.text(sub, vw / 2f, vh * 0.4f + s(36f), s(15f), Palette.textDim, Paint.Align.CENTER)
+        if (win && system.isBoss)
+            p.text("ทำลายยานแม่ศัตรูสำเร็จ! กำลังเข้าสู่เซกเตอร์ถัดไป",
+                vw / 2f, vh * 0.4f + s(58f), s(14f), Palette.accentWarm, Paint.Align.CENTER, true)
         btnContinue.set(vw / 2f - s(120f), vh * 0.58f, s(240f), s(50f))
         btnContinue.draw(p, primary = true)
     }
@@ -242,28 +284,28 @@ class CombatScreen(
 
         if (outcome == BattleResult.PLAYER_WIN) {
             state.earn(world.salvageCredits)
-            // Enemies cleared from open space.
+            state.earnResearch(world.researchReward)
+            gainedResearch = world.researchReward
+            // Enemies cleared; node is resolved.
             system.patrolFleet.clear()
-            if (invasion) {
-                system.garrisonFleet.clear()
+            system.garrisonFleet.clear()
+            system.resolved = true
+            if (invasion || system.hasStation) {
                 when {
                     world.stationCaptured -> {
-                        system.stationFaction = Faction.ALLY
-                        system.owner = Faction.ALLY
+                        system.stationFaction = Faction.ALLY; system.owner = Faction.ALLY
                         system.stationTroops = 0
-                        state.addRep(Faction.ALLY, 20)
                         game.toast("ยึดสถานีสำเร็จ! +₡${world.salvageCredits}")
                     }
                     world.stationDestroyed -> {
                         system.hasStation = false
-                        system.stationFaction = Faction.NEUTRAL
-                        system.owner = Faction.NEUTRAL
+                        system.stationFaction = Faction.NEUTRAL; system.owner = Faction.NEUTRAL
                         game.toast("ทำลายสถานีศัตรู! +₡${world.salvageCredits}")
                     }
                     else -> game.toast("ชนะการรบ! +₡${world.salvageCredits}")
                 }
             } else {
-                game.toast("ชนะการรบ! +₡${world.salvageCredits}")
+                game.toast("ชนะการรบ! +₡${world.salvageCredits} +${world.researchReward} วิจัย")
             }
             state.checkMissionProgress()
         } else {
@@ -275,13 +317,20 @@ class CombatScreen(
     }
 
     private fun finishBattleNavigation() {
-        if (state.fleet.isEmpty()) {
-            // Total defeat — end the campaign.
+        // Campaign ends if the flagship is lost or the whole fleet is destroyed.
+        if (state.fleet.isEmpty() || !state.flagshipAlive()) {
             game.save.delete()
-            game.toast("จบเกม: กองยานถูกทำลายทั้งหมด")
+            val why = if (state.fleet.isEmpty()) "กองยานถูกทำลายทั้งหมด" else "เรือธงถูกทำลาย"
+            game.toast("จบเกม: $why")
             game.setRoot(MainMenuScreen(game))
-        } else {
-            game.pop()
+            return
         }
+        // Clearing the boss advances to the next sector.
+        if (outcome == BattleResult.PLAYER_WIN && system.isBoss) {
+            state.advanceSector()
+            game.toast("เข้าสู่เซกเตอร์ ${state.galaxy.sectorNumber}!")
+            game.persist()
+        }
+        game.pop()
     }
 }

@@ -35,6 +35,16 @@ data class ModuleDef(
     val sensorBonus: Float = 0f
 )
 
+/** Aggregated multipliers/flats from the player's researched technology. */
+data class TechBonus(
+    val damageMult: Float = 1f,
+    val fireRateMult: Float = 1f,
+    val shieldMult: Float = 1f,
+    val hullMult: Float = 1f,
+    val engineMult: Float = 1f,
+    val repairFlat: Float = 0f
+)
+
 /** Static blueprint for a ship hull. */
 data class ShipDef(
     val id: String,
