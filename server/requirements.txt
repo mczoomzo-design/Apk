@@ -1,0 +1,18 @@
+# --- core (จำเป็นเสมอ) ---
+fastapi>=0.110,<1.0
+uvicorn[standard]>=0.27,<1.0
+pydantic>=2.6,<3.0
+numpy>=1.26,<3.0
+Pillow>=10.0,<12.0
+python-multipart>=0.0.9
+
+# --- ดัชนีค้นหา (แนะนำ; มี numpy fallback ถ้าไม่มี) ---
+faiss-cpu>=1.7,<2.0 ; platform_system != "Windows"
+
+# --- โมเดลจริง (ติดตั้งเมื่อ EMBEDDER=insightface) ---
+# insightface>=0.7
+# onnxruntime>=1.17
+
+# --- Google Drive backend (ติดตั้งเมื่อ STORAGE_BACKEND=drive) ---
+# google-api-python-client>=2.100
+# google-auth>=2.28

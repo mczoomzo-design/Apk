@@ -1,0 +1,22 @@
+# data / runtime (ข้อมูลกิจกรรมจริงอยู่ Google Drive ไม่ commit)
+server/_data/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# node
+web/node_modules/
+web/dist/
+
+# secrets — ห้าม commit เด็ดขาด
+*.key
+*.pem
+service-account*.json
+.env
+.env.local
+
+# models (ดาวน์โหลดตอน deploy)
+*.onnx
+~/.insightface/
