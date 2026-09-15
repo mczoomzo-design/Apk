@@ -39,16 +39,27 @@ FOLDER_MIME = "application/vnd.google-apps.folder"
 
 
 class DriveStorage(Storage):
-    def __init__(self, root_folder_id: str, credentials_file: str):
+    def __init__(self, root_folder_id: str, credentials_file: str = "", credentials_json: str = ""):
         if not _DRIVE_AVAILABLE:
             raise RuntimeError(
                 "ต้องติดตั้ง google-api-python-client และ google-auth ก่อนใช้ DriveStorage"
             )
         if not root_folder_id:
             raise RuntimeError("ต้องตั้ง DRIVE_ROOT_FOLDER_ID")
-        creds = service_account.Credentials.from_service_account_file(
-            credentials_file, scopes=SCOPES
-        )
+        # รับ credential ได้ 2 ทาง: เนื้อ JSON ผ่าน env (GOOGLE_CREDENTIALS_JSON) หรือ path ไฟล์
+        if credentials_json:
+            import json as _json
+
+            info = _json.loads(credentials_json)
+            creds = service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
+        elif credentials_file:
+            creds = service_account.Credentials.from_service_account_file(
+                credentials_file, scopes=SCOPES
+            )
+        else:
+            raise RuntimeError(
+                "ต้องตั้ง GOOGLE_CREDENTIALS_JSON หรือ GOOGLE_APPLICATION_CREDENTIALS อย่างใดอย่างหนึ่ง"
+            )
         self.svc = build("drive", "v3", credentials=creds, cache_discovery=False)
         self.root_id = root_folder_id
         # cache: logical path -> fileId (ลด round-trip; ล้างได้เมื่อจำเป็น)

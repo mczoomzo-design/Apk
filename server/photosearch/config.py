@@ -39,6 +39,10 @@ class Settings:
     google_credentials_file: str = field(
         default_factory=lambda: os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "")
     )
+    # ทางเลือก: ใส่เนื้อ JSON ของ service account key ตรง ๆ ผ่าน env (เหมาะกับ secret/remote)
+    google_credentials_json: str = field(
+        default_factory=lambda: os.environ.get("GOOGLE_CREDENTIALS_JSON", "")
+    )
 
     # --- embedder / โมเดลใบหน้า ---
     # EMBEDDER: "mock" (deterministic ทดสอบได้โดยไม่ต้องมีโมเดล) หรือ "insightface"

@@ -16,7 +16,11 @@ def build_storage(settings: Settings) -> Storage:
     if settings.storage_backend == "drive":
         from .drive import DriveStorage
 
-        return DriveStorage(settings.drive_root_folder_id, settings.google_credentials_file)
+        return DriveStorage(
+            settings.drive_root_folder_id,
+            settings.google_credentials_file,
+            credentials_json=settings.google_credentials_json,
+        )
     return LocalStorage(settings.local_root)
 
 

@@ -8,6 +8,15 @@
 2. สร้าง key (JSON) → เก็บอย่างปลอดภัย (mount ตอน deploy, ห้าม commit)
 3. เปิดใช้ **Google Drive API** ในโปรเจกต์
 
+### ให้ credential แก่ระบบ (เลือกทางใดทางหนึ่ง)
+- **(ก) ไฟล์:** ตั้ง `GOOGLE_APPLICATION_CREDENTIALS=/secure/sa.json` (ต้องมีไฟล์อยู่ในเครื่อง/คอนเทนเนอร์)
+- **(ข) เนื้อ JSON ผ่าน env:** ตั้ง `GOOGLE_CREDENTIALS_JSON` เป็นเนื้อ JSON ทั้งก้อน
+  เหมาะกับ **remote/secret** (Cloud Run Secret หรือ environment settings ของ Claude Code)
+  เพราะไม่ต้องวางไฟล์และไม่โผล่ใน transcript
+
+> รันทดสอบเมื่อพร้อม: `cd server && PYTHONPATH=. python scripts/drive_selftest.py`
+> (ต้อง `pip install google-api-python-client google-auth` ก่อน)
+
 ## 2) เตรียม Shared Drive
 1. สร้าง Shared Drive (เช่นชื่อ `PhotoSearch`)
 2. เพิ่ม **อีเมลของ service account** เป็นสมาชิกระดับ **Content manager** ขึ้นไป

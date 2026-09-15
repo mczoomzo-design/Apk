@@ -28,8 +28,11 @@ def main() -> int:
     if settings.storage_backend != "drive":
         print("ตั้ง STORAGE_BACKEND=drive ก่อน", file=sys.stderr)
         return 2
-    if not settings.drive_root_folder_id or not settings.google_credentials_file:
-        print("ต้องตั้ง DRIVE_ROOT_FOLDER_ID และ GOOGLE_APPLICATION_CREDENTIALS", file=sys.stderr)
+    if not settings.drive_root_folder_id:
+        print("ต้องตั้ง DRIVE_ROOT_FOLDER_ID", file=sys.stderr)
+        return 2
+    if not settings.google_credentials_file and not settings.google_credentials_json:
+        print("ต้องตั้ง GOOGLE_CREDENTIALS_JSON หรือ GOOGLE_APPLICATION_CREDENTIALS", file=sys.stderr)
         return 2
 
     storage = build_storage(settings)
