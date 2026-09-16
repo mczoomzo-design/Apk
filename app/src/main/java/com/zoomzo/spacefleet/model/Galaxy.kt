@@ -191,14 +191,14 @@ class Galaxy(
         private fun fillEncounter(s: StarSystem, sector: Int, rng: Random) {
             when (s.encounter) {
                 EncounterType.COMBAT -> {
-                    repeat(1 + s.danger) { s.patrolFleet.add(enemyShipForDanger(s.danger, rng)) }
+                    repeat(1 + s.danger / 2) { s.patrolFleet.add(enemyShipForDanger(s.danger, rng)) }
                     s.owner = Faction.ENEMY
                 }
                 EncounterType.ELITE -> {
                     s.isAmbush = true
-                    repeat(2 + s.danger) { s.patrolFleet.add(enemyShipForDanger(s.danger + 1, rng)) }
+                    repeat(2 + s.danger / 2) { s.patrolFleet.add(enemyShipForDanger(s.danger, rng)) }
                     s.owner = Faction.ENEMY
-                    if (rng.nextFloat() < 0.5f) {
+                    if (rng.nextFloat() < 0.4f) {
                         s.hasStation = true; s.stationFaction = Faction.ENEMY
                         s.stationHealth = 300 + s.danger * 80; s.stationTroops = 2 + s.danger
                         repeat(1) { s.garrisonFleet.add(enemyShipForDanger(s.danger, rng)) }

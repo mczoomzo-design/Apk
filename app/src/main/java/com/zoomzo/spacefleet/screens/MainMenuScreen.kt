@@ -58,7 +58,7 @@ class MainMenuScreen(game: Game) : Screen(game) {
         newGame.draw(p, primary = true)
         continueGame.draw(p, primary = false)
 
-        p.text("v1.1 · แตะเพื่อบัญชาการ", cx, p.height - s(20f), s(12f), Palette.textMuted, Paint.Align.CENTER)
+        p.text("v1.2 · แตะเพื่อบัญชาการ", cx, p.height - s(20f), s(12f), Palette.textMuted, Paint.Align.CENTER)
     }
 
     override fun onTap(x: Float, y: Float) {

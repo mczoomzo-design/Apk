@@ -134,7 +134,7 @@ class CombatWorld(
         var count = 0
         if (ambush) count += 1 + rng.nextInt(2)
         if (system.isBoss) count += 2
-        if (rng.nextFloat() < 0.28f * difficulty.ambushMult) count += 1  // random surprise
+        if (rng.nextFloat() < 0.15f * difficulty.ambushMult) count += 1  // random surprise
         count = kotlin.math.ceil(count * difficulty.ambushMult).toInt()
         for (i in 0 until count) {
             val timer = 4.5f + i * 3.5f + rng.nextFloat() * 2.5f
@@ -178,6 +178,9 @@ class CombatWorld(
     }
 
     val pendingWaves: Boolean get() = waves.isNotEmpty()
+
+    /** Flat credits awarded for clearing the node (so no fight is "empty"). */
+    val victoryBonus: Int get() = 120 + system.danger * 90 + (if (system.isBoss) 800 else 0)
 
     // ---------------- Construction ----------------
 
@@ -498,7 +501,7 @@ class CombatWorld(
         val col = if (s.team == 0) Palette.enginePlayer else Palette.engineEnemy
         spawnExplosion(s.pos.x, s.pos.y, (s.size / 20f).coerceIn(0.7f, 3.5f), col)
         if (s.team == 1 && !s.isStation) {
-            salvageCredits += (Catalog.shipOrNull(s.defId)?.cost ?: 400) / 10
+            salvageCredits += (Catalog.shipOrNull(s.defId)?.cost ?: 400) / 6
             researchReward += 1
         }
     }

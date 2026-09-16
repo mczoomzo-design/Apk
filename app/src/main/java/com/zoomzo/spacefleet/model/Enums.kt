@@ -60,10 +60,10 @@ enum class Difficulty(
     val startCredits: Int,
     val startResearch: Int
 ) {
-    EASY("CADET", "ง่าย · เหมาะกับผู้เริ่มต้น", 0.8f, 0.7f, 0.5f, 1.25f, 8000, 6),
-    NORMAL("CAPTAIN", "ปกติ · สมดุล", 1.0f, 1.0f, 1.0f, 1.0f, 6000, 4),
-    HARD("COMMANDER", "ยาก · ศัตรูดุดัน ซุ่มโจมตีบ่อย", 1.3f, 1.3f, 1.5f, 0.9f, 5000, 3),
-    INSANE("ADMIRAL", "โหด · เอาชีวิตรอดสุดขีด", 1.6f, 1.55f, 2.0f, 0.8f, 4000, 2)
+    EASY("CADET", "ง่าย · เน้นฟาร์มสบายๆ", 0.55f, 0.5f, 0.25f, 1.6f, 12000, 8),
+    NORMAL("CAPTAIN", "ปกติ · สมดุล", 0.8f, 0.75f, 0.6f, 1.3f, 9000, 5),
+    HARD("COMMANDER", "ยาก · ศัตรูดุดัน ซุ่มโจมตีบ่อย", 1.1f, 1.05f, 1.1f, 1.05f, 7000, 4),
+    INSANE("ADMIRAL", "โหด · เอาชีวิตรอดสุดขีด", 1.45f, 1.35f, 1.6f, 0.9f, 5500, 3)
 }
 
 /** Type of encounter waiting at a sector node (Harbinger-style jump map). */

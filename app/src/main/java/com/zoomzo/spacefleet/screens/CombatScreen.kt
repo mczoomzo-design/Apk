@@ -14,6 +14,7 @@ import com.zoomzo.spacefleet.engine.Painter
 import com.zoomzo.spacefleet.engine.Palette
 import com.zoomzo.spacefleet.engine.Screen
 import com.zoomzo.spacefleet.engine.Ui
+import com.zoomzo.spacefleet.model.Catalog
 import com.zoomzo.spacefleet.model.Faction
 import com.zoomzo.spacefleet.model.StarSystem
 import com.zoomzo.spacefleet.util.MathUtil
@@ -34,10 +35,22 @@ class CombatScreen(
         ambush || system.isAmbush, state.difficulty
     )
     private var gainedResearch = 0
+    private var gainedCredits = 0
+    private var gainedWeapon: String? = null
+    private var gainedModule: String? = null
+    private val lootRng = kotlin.random.Random(System.nanoTime())
     private val cam = Camera()
     private var camInit = false
     private val backdrop = Backdrop(system.id.toLong() * 7919L + 13L)
     private var t = 0f
+
+    // playback speed: 0 = paused
+    private var speed = 1f
+    private var paused = false
+    private val btnPause = Button(label = "⏸")
+    private val btnSp05 = Button(label = "0.5x")
+    private val btnSp1 = Button(label = "1x")
+    private val btnSp2 = Button(label = "2x")
 
     private var ended = false
     private var outcome = BattleResult.RUNNING
@@ -55,7 +68,15 @@ class CombatScreen(
     override fun update(dt: Float) {
         t += dt
         if (ended) return
-        world.update(dt)
+        val scale = if (paused) 0f else speed
+        if (scale <= 0f) return
+        // step in capped sub-steps so 2x speed stays stable
+        var remaining = dt * scale
+        while (remaining > 0f) {
+            val step = remaining.coerceAtMost(0.05f)
+            world.update(step)
+            remaining -= step
+        }
         val r = world.result()
         if (r != BattleResult.RUNNING) { ended = true; outcome = r }
     }
@@ -99,6 +120,7 @@ class CombatScreen(
         }
 
         drawWarpPortals(p)
+        drawOrderLines(p)
         for (sh in world.ships) if (sh.alive) drawShip(p, sh)
 
         drawHud(p)
@@ -230,6 +252,36 @@ class CombatScreen(
         }
     }
 
+    /** Waypoint / attack lines showing where each ship is heading. */
+    private fun drawOrderLines(p: Painter) {
+        val hasSel = world.selectedCount > 0
+        for (sh in world.ships) {
+            if (sh.team != 0 || !sh.alive || sh.isStation) continue
+            val emphasize = sh.selected || !hasSel
+            val sxp = cam.worldToScreenX(sh.pos.x); val syp = cam.worldToScreenY(sh.pos.y)
+            val tgt = sh.attackTarget
+            val goal = sh.moveGoal
+            if (tgt != null && tgt.alive) {
+                val tx = cam.worldToScreenX(tgt.pos.x); val ty = cam.worldToScreenY(tgt.pos.y)
+                val a = if (emphasize) 200 else 60
+                p.dottedLine(sxp, syp, tx, ty, Palette.withAlpha(Palette.bad, a), s(1.6f), s(7f))
+                if (emphasize) {
+                    p.ringStroke(tx, ty, s(11f), Palette.withAlpha(Palette.bad, 220), s(1.6f))
+                    p.line(tx - s(14f), ty, tx + s(14f), ty, Palette.withAlpha(Palette.bad, 180), s(1f))
+                    p.line(tx, ty - s(14f), tx, ty + s(14f), Palette.withAlpha(Palette.bad, 180), s(1f))
+                }
+            } else if (goal != null) {
+                val gx = cam.worldToScreenX(goal.x); val gy = cam.worldToScreenY(goal.y)
+                val a = if (emphasize) 200 else 55
+                p.dottedLine(sxp, syp, gx, gy, Palette.withAlpha(Palette.selection, a), s(1.6f), s(7f))
+                if (emphasize) {
+                    p.ringStroke(gx, gy, s(8f), Palette.withAlpha(Palette.selection, 220), s(1.6f))
+                    p.circle(gx, gy, s(2.5f), Palette.selection)
+                }
+            }
+        }
+    }
+
     /** RTS-style corner brackets around a selected unit. */
     private fun drawBrackets(p: Painter, x: Float, y: Float, half: Float, color: Int) {
         val c = color; val lw = s(2f); val len = half * 0.4f
@@ -313,6 +365,18 @@ class CombatScreen(
         if (selc > 0)
             p.text("เลือก $selc ลำ · แตะเพื่อสั่งเคลื่อน/โจมตี", vw / 2f, by + bh * 0.62f, s(12f),
                 Palette.accent, Paint.Align.CENTER)
+
+        drawSpeedControls(p)
+        if (paused) p.text("⏸ หยุดชั่วคราว", vw / 2f, s(66f), s(16f), Palette.warn, Paint.Align.CENTER, true)
+    }
+
+    private fun drawSpeedControls(p: Painter) {
+        val by = s(50f); val bh = s(30f); var bx = s(12f)
+        btnPause.set(bx, by, s(40f), bh); btnPause.label = if (paused) "▶" else "⏸"
+        btnPause.draw(p, primary = paused); bx += s(46f)
+        btnSp05.set(bx, by, s(44f), bh); btnSp05.draw(p, primary = !paused && speed == 0.5f); bx += s(50f)
+        btnSp1.set(bx, by, s(44f), bh); btnSp1.draw(p, primary = !paused && speed == 1f); bx += s(50f)
+        btnSp2.set(bx, by, s(44f), bh); btnSp2.draw(p, primary = !paused && speed == 2f)
     }
 
     private fun drawOutcome(p: Painter) {
@@ -322,12 +386,25 @@ class CombatScreen(
         val title = if (win) "ชัยชนะ!" else "พ่ายแพ้"
         p.text(title, vw / 2f, vh * 0.4f, s(40f), if (win) Palette.good else Palette.bad,
             Paint.Align.CENTER, true)
-        val sub = if (win) "กวาดล้างศัตรูสำเร็จ  +₡${world.salvageCredits}  +${world.researchReward} วิจัย"
+        val sub = if (win) "รางวัล:  +₡$gainedCredits    +${world.researchReward} วิจัย"
             else "กองยานถูกทำลายในสมรภูมิ"
-        p.text(sub, vw / 2f, vh * 0.4f + s(36f), s(15f), Palette.textDim, Paint.Align.CENTER)
+        p.text(sub, vw / 2f, vh * 0.4f + s(36f), s(16f), Palette.accentWarm, Paint.Align.CENTER, true)
+        if (win) {
+            val drops = buildString {
+                gainedWeapon?.let { append("อาวุธ: $it") }
+                if (gainedWeapon != null && gainedModule != null) append("    ")
+                gainedModule?.let { append("อุปกรณ์: $it") }
+            }
+            if (drops.isNotBlank())
+                p.text("ได้รับไอเทม → $drops", vw / 2f, vh * 0.4f + s(58f), s(14f),
+                    Palette.good, Paint.Align.CENTER)
+            else
+                p.text("(นำเครดิตไปซื้อยาน/อาวุธที่สถานีพันธมิตร)", vw / 2f, vh * 0.4f + s(58f),
+                    s(12f), Palette.textDim, Paint.Align.CENTER)
+        }
         if (win && system.isBoss)
             p.text("ทำลายยานแม่ศัตรูสำเร็จ! กำลังเข้าสู่เซกเตอร์ถัดไป",
-                vw / 2f, vh * 0.4f + s(58f), s(14f), Palette.accentWarm, Paint.Align.CENTER, true)
+                vw / 2f, vh * 0.4f + s(80f), s(14f), Palette.accentWarm, Paint.Align.CENTER, true)
         btnContinue.set(vw / 2f - s(120f), vh * 0.58f, s(240f), s(50f))
         btnContinue.draw(p, primary = true)
     }
@@ -350,7 +427,13 @@ class CombatScreen(
             if (btnContinue.hit(x, y)) resolveAndExit()
             return
         }
-        // Ignore taps on control bars.
+        // Speed / pause controls (top-left).
+        if (btnPause.hit(x, y)) { paused = !paused; return }
+        if (btnSp05.hit(x, y)) { speed = 0.5f; paused = false; return }
+        if (btnSp1.hit(x, y)) { speed = 1f; paused = false; return }
+        if (btnSp2.hit(x, y)) { speed = 2f; paused = false; return }
+
+        // Ignore taps on the top header.
         if (y < s(44f)) return
         if (y > vh - s(60f)) {
             if (btnAll.hit(x, y)) { world.selectAll(); return }
@@ -401,9 +484,11 @@ class CombatScreen(
 
         if (outcome == BattleResult.PLAYER_WIN) {
             val mult = state.difficulty.rewardMult
-            state.earn((world.salvageCredits * mult).toInt())
+            gainedCredits = ((world.salvageCredits + world.victoryBonus) * mult).toInt()
+            state.earn(gainedCredits)
             state.earnResearch(world.researchReward)
             gainedResearch = world.researchReward
+            rollLoot()
             // Enemies cleared; node is resolved.
             system.patrolFleet.clear()
             system.garrisonFleet.clear()
@@ -413,17 +498,17 @@ class CombatScreen(
                     world.stationCaptured -> {
                         system.stationFaction = Faction.ALLY; system.owner = Faction.ALLY
                         system.stationTroops = 0
-                        game.toast("ยึดสถานีสำเร็จ! +₡${world.salvageCredits}")
+                        game.toast("ยึดสถานีสำเร็จ! +₡$gainedCredits")
                     }
                     world.stationDestroyed -> {
                         system.hasStation = false
                         system.stationFaction = Faction.NEUTRAL; system.owner = Faction.NEUTRAL
-                        game.toast("ทำลายสถานีศัตรู! +₡${world.salvageCredits}")
+                        game.toast("ทำลายสถานีศัตรู! +₡$gainedCredits")
                     }
-                    else -> game.toast("ชนะการรบ! +₡${world.salvageCredits}")
+                    else -> game.toast("ชนะการรบ! +₡$gainedCredits")
                 }
             } else {
-                game.toast("ชนะการรบ! +₡${world.salvageCredits} +${world.researchReward} วิจัย")
+                game.toast("ชนะการรบ! +₡$gainedCredits +${world.researchReward} วิจัย")
             }
             state.checkMissionProgress()
         } else {
@@ -432,6 +517,32 @@ class CombatScreen(
         resolved = true
         game.persist()
         finishBattleNavigation()
+    }
+
+    private fun rollLoot() {
+        val danger = system.danger
+        if (lootRng.nextFloat() < 0.55f + danger * 0.05f) {
+            val w = weightedPick(Catalog.weapons.map { it.id to it.cost })
+            state.addWeapon(w); gainedWeapon = Catalog.weapon(w)?.name
+        }
+        if (lootRng.nextFloat() < 0.4f + danger * 0.05f) {
+            val m = weightedPick(Catalog.modules.map { it.id to it.cost })
+            state.addModule(m); gainedModule = Catalog.module(m)?.name
+        }
+        if (system.isBoss) {
+            // guaranteed premium drop
+            val w = Catalog.weapons.maxByOrNull { it.cost }!!.id
+            state.addWeapon(w); gainedWeapon = Catalog.weapon(w)?.name
+        }
+    }
+
+    /** Cheaper items drop more often (weight = 1 / cost). */
+    private fun weightedPick(items: List<Pair<String, Int>>): String {
+        val weights = items.map { 1f / it.second.coerceAtLeast(1) }
+        val total = weights.sum()
+        var r = lootRng.nextFloat() * total
+        for (i in items.indices) { r -= weights[i]; if (r <= 0f) return items[i].first }
+        return items.last().first
     }
 
     private fun finishBattleNavigation() {

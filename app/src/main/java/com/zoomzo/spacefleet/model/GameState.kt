@@ -107,7 +107,7 @@ class GameState private constructor() {
     fun fleetPower(): Int = fleet.sumOf { (it.maxHull + it.maxShield + it.dps * 6f).toInt() }
 
     fun repairFleetCost(): Int =
-        fleet.sumOf { (it.hullDamage * 0.9f).toInt() }
+        fleet.sumOf { (it.hullDamage * 0.4f).toInt() }
 
     fun repairFleet(): Int {
         val cost = repairFleetCost()
