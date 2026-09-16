@@ -161,9 +161,9 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .timer-badge{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.14);color:#fff;padding:11px 18px;border-radius:999px;font-weight:600}
 .progress-pill{align-self:center;color:#fff;font-size:14px;letter-spacing:1px;background:rgba(255,255,255,.14);padding:7px 18px;border-radius:999px;margin-top:2px;z-index:3}
 #camFlash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:9;transition:opacity .12s}
-.cam-stage{flex:1;display:flex;align-items:center;justify-content:center;padding:8px 24px;min-height:0}
-.cam-frame{width:auto;height:100%;max-height:100%;max-width:min(680px,92vw);aspect-ratio:3/4;border:3px solid #fff;border-radius:18px;
-  padding:12px;display:grid;gap:8px;position:relative;background:#000}
+.cam-stage{flex:1;display:flex;align-items:center;justify-content:center;padding:4px 8px;min-height:0}
+.cam-frame{width:auto;height:100%;max-height:100%;max-width:96vw;border:3px solid #fff;border-radius:18px;
+  padding:8px;position:relative;background:#000;box-sizing:border-box}
 .cam-slot{background:#0c0c0f;border-radius:8px;overflow:hidden;position:relative;display:grid;place-items:center}
 .cam-slot.filled{outline:3px solid #fff}
 .cam-slot.current{outline:3px dashed #fff;animation:bracketPulse 1.1s infinite}
@@ -197,14 +197,18 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
   .review-2col{flex-direction:column;gap:8px;padding:0 12px}
   .review-2col .review-stage{flex:0 1 auto}
 }
-#reviewFrame{max-height:100%;overflow:auto;border:2px solid var(--ink);border-radius:8px;background:#fff}
-#reviewFrame img{display:block;width:min(210px,32vh)}
+#reviewFrame{max-height:74vh;overflow-y:auto;-webkit-overflow-scrolling:touch;border:2px solid var(--ink);border-radius:8px;background:#fff}
+#reviewFrame img{display:block;width:min(240px,34vh)}
 #reviewFrame .dnote{padding:40px 16px}
 .opttabs{display:flex;gap:4px;justify-content:center;margin:12px auto 0;background:#eeeef2;border-radius:999px;padding:4px;width:min(360px,90%)}
 .opttabs button{flex:1;border:none;background:transparent;padding:10px 4px;border-radius:999px;font-family:inherit;font-weight:700;font-size:14px;color:#5a5a63;cursor:pointer;transition:.15s}
 .opttabs button.on{background:var(--ink);color:#fff}
 .optchips{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:10px auto 2px;width:min(440px,94%);min-height:44px}
 .optchips .btn{width:auto;padding:9px 16px;font-size:14px;border-radius:999px}
+.slipwrap{position:relative;display:inline-block;line-height:0}
+.stk{position:absolute;transform:translate(-50%,-50%);cursor:grab;user-select:none;-webkit-user-select:none;touch-action:none;line-height:1;z-index:3}
+.stk.sel{outline:2px dashed #ff3d8b;border-radius:8px;background:rgba(255,61,139,.08)}
+.stk-tools{display:flex;gap:8px;justify-content:center;margin:6px 0 2px}
 .review-actions{display:flex;gap:14px;padding:14px 0 28px}
 .review-actions .btn{min-width:180px}
 
@@ -244,9 +248,9 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .ck-p{fill:none;stroke:#fff;stroke-width:5;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:48;stroke-dashoffset:48;animation:drawCheck .45s .25s forwards ease}
 #done h2{font-family:var(--display);font-size:34px;letter-spacing:.5px}
 #done p{color:var(--grey);margin:6px 0 18px}
-.qr-card{display:flex;align-items:center;gap:16px;border:2px solid var(--ink);border-radius:16px;padding:14px 18px;margin-bottom:22px}
-#qr{width:96px;height:96px;flex-shrink:0}
-.qr-card .qt{text-align:left}
+.qr-card{display:flex;flex-direction:column;align-items:center;gap:10px;border:2px solid var(--ink);border-radius:16px;padding:18px 20px;margin-bottom:18px}
+#qr{width:260px;height:260px;flex-shrink:0;image-rendering:pixelated}
+.qr-card .qt{text-align:center}
 .qr-card .qt b{font-weight:700}
 .qr-card .qt small{color:var(--grey);font-size:13px}
 #done .acts{display:flex;flex-direction:column;gap:12px;width:min(340px,80vw)}
@@ -400,6 +404,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
         <p class="sub">พอใจแล้วกด “ตกลง” เพื่อไปสั่งพิมพ์</p>
         <div id="optTabs" class="opttabs"></div>
         <div id="optChips" class="optchips"></div>
+        <div id="stkTools" class="stk-tools" hidden></div>
         <div class="review-actions">
           <button class="btn btn-line" onclick="retake()">📷 ถ่ายใหม่</button>
           <button class="btn btn-ink" onclick="go('copies')">ตกลง ✓</button>
@@ -469,7 +474,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
     <h2>THANK YOU</h2>
     <p>พิมพ์ใบเสร็จเรียบร้อยแล้ว เก็บความทรงจำไว้เลย!</p>
     <div class="qr-card">
-      <canvas id="qr" width="96" height="96"></canvas>
+      <canvas id="qr" width="520" height="520"></canvas>
       <div class="qt"><b>SCAN TO DOWNLOAD</b><br><small>สแกนเพื่อดาวน์โหลดรูปดิจิทัล</small></div>
     </div>
     <div id="upNote" style="max-width:340px;margin:2px auto 10px;font-size:13px;line-height:1.5;text-align:center"></div>
@@ -2945,11 +2950,11 @@ async function startCamera(){
 function cellRatio(){ return (selected&&selected.cellRatio)?selected.cellRatio:1.15; }
 function buildCamFrame(){
   const f=document.getElementById('camFrame');
-  // Single live preview cropped to the SAME aspect as the chosen layout's photo
-  // cell, so what you frame in the camera is exactly what lands on the slip.
-  f.style.gridTemplateColumns='1fr';
+  // The whole framed preview takes the chosen layout cell's aspect and fills the
+  // screen; what you frame is exactly what lands on the slip.
   const cr=cellRatio(), aw=1000, ah=Math.round(1000*cr);
-  f.innerHTML=`<div class="cam-slot current" data-i="0" style="aspect-ratio:${aw}/${ah};max-height:58vh;max-width:100%;width:auto;margin:0 auto">
+  f.style.aspectRatio=aw+'/'+ah;
+  f.innerHTML=`<div class="cam-slot current" data-i="0" style="width:100%;height:100%">
       <video muted playsinline></video>
       <div class="cam-placeholder">กำลังเปิดกล้อง…</div>
     </div>`+
@@ -3047,12 +3052,20 @@ const PHOTO_FRAMES=[['none','ไม่มี'],['hearts','หัวใจ'],['st
 function chip(active,label,fn){
   return `<button class="btn ${active?'btn-ink':'btn-line'}" onclick="${fn}">${label}</button>`;
 }
-const REVIEW_TABS=[['style','รูปแบบ'],['filter','ฟิลเตอร์'],['frame','กรอบ']];
+const REVIEW_TABS=[['style','รูปแบบ'],['filter','ฟิลเตอร์'],['frame','กรอบ'],['sticker','สติกเกอร์']];
+const STICKER_SET=['❤️','⭐','🌸','🎀','🐱','🐰','☀️','🌈','✨','🍓','👑','💐','😎','🥰','🦋','🍒'];
 let reviewTab='style';
+let slipStickers=[], selSticker=-1, _stkDrag=-1;
 function renderReviewOptions(){
   const tb=document.getElementById('optTabs');
   if(tb) tb.innerHTML=REVIEW_TABS.map(([id,l])=>`<button class="${id===reviewTab?'on':''}" onclick="setReviewTab('${id}')">${l}</button>`).join('');
   const cb=document.getElementById('optChips'); if(!cb) return;
+  if(reviewTab==='sticker'){
+    cb.innerHTML='<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:440px">'+
+      STICKER_SET.map(e=>`<button class="btn btn-line" style="font-size:22px;padding:6px 10px;width:auto;border-radius:12px" onclick="addSticker('${e}')">${e}</button>`).join('')+
+      `<button class="btn btn-line" style="width:auto;padding:8px 14px;border-radius:999px" onclick="clearStickers()">ล้างทั้งหมด</button></div>`;
+    return;
+  }
   let items,cur,fn;
   if(reviewTab==='filter'){ items=PHOTO_FILTERS; cur=photoFilter(); fn='pickFilter'; }
   else if(reviewTab==='frame'){ items=PHOTO_FRAMES; cur=photoFrame(); fn='pickFrame'; }
@@ -3063,14 +3076,61 @@ function setReviewTab(t){ reviewTab=t; renderReviewOptions(); }
 function pickStyle(id){ setSlipStyle(id); renderReviewOptions(); drawReview(); }
 function pickFilter(id){ setPhotoFilter(id); renderReviewOptions(); drawReview(); }
 function pickFrame(id){ setPhotoFrame(id); renderReviewOptions(); drawReview(); }
+
+/* ---------- stickers ---------- */
+function addSticker(e){ slipStickers.push({e,nx:0.5,ny:0.30,size:0.16}); selSticker=slipStickers.length-1; renderStickerOverlay(); }
+function clearStickers(){ slipStickers=[]; selSticker=-1; renderStickerOverlay(); }
+function delSticker(){ if(selSticker>=0){ slipStickers.splice(selSticker,1); selSticker=-1; renderStickerOverlay(); } }
+function sizeSticker(d){ if(selSticker>=0){ const s=slipStickers[selSticker]; s.size=Math.max(0.05,Math.min(0.5,s.size+d)); renderStickerOverlay(); } }
+function renderStickerTools(){
+  const t=document.getElementById('stkTools'); if(!t) return;
+  if(selSticker<0){ t.hidden=true; t.innerHTML=''; return; }
+  t.hidden=false;
+  t.innerHTML='<button class="btn btn-line" style="width:auto;padding:8px 16px" onclick="sizeSticker(-0.03)">➖</button>'+
+    '<button class="btn btn-line" style="width:auto;padding:8px 16px" onclick="sizeSticker(0.03)">➕</button>'+
+    '<button class="btn btn-line" style="width:auto;padding:8px 16px" onclick="delSticker()">🗑 ลบ</button>';
+}
+function renderStickerOverlay(){
+  const wrap=document.querySelector('#reviewFrame .slipwrap'); if(!wrap){ renderStickerTools(); return; }
+  const img=wrap.querySelector('img'); const wpx=img?img.clientWidth:240;
+  wrap.querySelectorAll('.stk').forEach(n=>n.remove());
+  slipStickers.forEach((s,i)=>{
+    const el=document.createElement('span'); el.className='stk'+(i===selSticker?' sel':'');
+    el.textContent=s.e; el.style.left=(s.nx*100)+'%'; el.style.top=(s.ny*100)+'%';
+    el.style.fontSize=Math.max(12,s.size*wpx)+'px';
+    el.addEventListener('pointerdown',ev=>{ ev.preventDefault(); selSticker=i; _stkDrag=i;
+      try{el.setPointerCapture(ev.pointerId);}catch(e){} renderStickerOverlay(); });
+    wrap.appendChild(el);
+  });
+  renderStickerTools();
+}
+function _stkMove(ev){
+  if(_stkDrag<0) return;
+  const wrap=document.querySelector('#reviewFrame .slipwrap'); if(!wrap) return;
+  const r=wrap.getBoundingClientRect();
+  const cx=ev.clientX!=null?ev.clientX:(ev.touches&&ev.touches[0].clientX);
+  const cy=ev.clientY!=null?ev.clientY:(ev.touches&&ev.touches[0].clientY);
+  if(cx==null) return;
+  let nx=(cx-r.left)/r.width, ny=(cy-r.top)/r.height;
+  const s=slipStickers[_stkDrag]; if(!s) return;
+  s.nx=Math.max(0,Math.min(1,nx)); s.ny=Math.max(0,Math.min(1,ny));
+  const el=document.querySelectorAll('#reviewFrame .stk')[_stkDrag];
+  if(el){ el.style.left=(s.nx*100)+'%'; el.style.top=(s.ny*100)+'%'; }
+}
+window.addEventListener('pointermove',_stkMove,{passive:false});
+window.addEventListener('pointerup',()=>{ _stkDrag=-1; });
+
 async function drawReview(){
   const f=document.getElementById('reviewFrame');
   renderReviewOptions();
   f.innerHTML='<p class="dnote">กำลังสร้างสลิป…</p>';
   const url=await buildStrip('digital');
-  f.innerHTML=`<img src="${url}" alt="slip">`;
+  f.innerHTML=`<div class="slipwrap"><img src="${url}" alt="slip"></div>`;
+  const img=f.querySelector('img');
+  if(img && !img.complete){ img.onload=renderStickerOverlay; }
+  renderStickerOverlay();
 }
-function retake(){ orderNo=null; startCamera(); }
+function retake(){ orderNo=null; slipStickers=[]; selSticker=-1; startCamera(); }
 
 /* ---------------- copies ---------------- */
 function setCopies(d){ copies=Math.max(1,Math.min(5,copies+d)); document.getElementById('copyNum').textContent=copies; updateCopyTotal(); }
@@ -3458,8 +3518,16 @@ function buildStrip(mode){
     if(imgs.length===0) fontsReady.then(render);
 
     function finish(y){
-      const Hf=Math.min(3800,Math.round(y+34)), out=document.createElement('canvas');
-      out.width=W; out.height=Hf;
+      const Hf=Math.min(3800,Math.round(y+34));
+      // bake stickers onto the printed / QR-download copy (preview shows them as overlay)
+      if((mode==='print'||mode==='color') && typeof slipStickers!=='undefined' && slipStickers.length){
+        ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle';
+        slipStickers.forEach(s=>{ const fs=Math.max(12,s.size*W);
+          ctx.font=fs+'px "Apple Color Emoji","Noto Color Emoji","Segoe UI Emoji",serif';
+          ctx.fillText(s.e, s.nx*W, s.ny*Hf); });
+        ctx.restore();
+      }
+      const out=document.createElement('canvas'); out.width=W; out.height=Hf;
       out.getContext('2d').drawImage(c,0,0,W,Hf,0,0,W,Hf);
       res(out.toDataURL('image/png'));
     }
@@ -3651,6 +3719,7 @@ function openPrinterSettings(){
 /* ---------------- reset ---------------- */
 function resetAll(){
   stopCamera(); selected=null; photos=[]; slotIndex=0; copies=1; flashOn=false; orderNo=null;
+  slipStickers=[]; selSticker=-1;
   document.getElementById('copyNum').textContent=1;
   document.querySelectorAll('.tab').forEach((x,i)=>x.classList.toggle('on',i===0));
   renderGrid('all'); go('home');
