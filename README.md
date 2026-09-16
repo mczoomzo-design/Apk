@@ -76,8 +76,14 @@
 ./gradlew assembleRelease
 ```
 
-- `minSdk` 24, `targetSdk`/`compileSdk` 34
+- `minSdk` 26 (Android 8.0+), `targetSdk`/`compileSdk` 34
 - แนวนอน (landscape), เต็มจอ
+- ไม่มี dependency ภายนอก (framework-only, ไม่ใช้ androidx) — build ได้โดยไม่ต้องต่อ Google Maven
+
+### สร้าง APK อัตโนมัติผ่าน GitHub Actions
+
+มี workflow `.github/workflows/android.yml` — ทุกครั้งที่ push จะ build debug APK ให้
+ดาวน์โหลดได้จากแท็บ **Actions → รันล่าสุด → Artifacts → SpaceFleetCommander-debug**
 
 > หมายเหตุ: ต้องมี Android SDK แยกต่างหาก (Gradle wrapper รวมมาให้แล้วในโปรเจกต์)
 

@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId = "com.zoomzo.spacefleet"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
@@ -35,6 +35,5 @@ android {
 }
 
 dependencies {
-    implementation("androidx.core:core-ktx:1.13.1")
-    implementation("androidx.appcompat:appcompat:1.7.0")
+    // Framework-only app: no androidx, so it builds without Google Maven access.
 }

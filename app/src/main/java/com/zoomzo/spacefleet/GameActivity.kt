@@ -1,16 +1,15 @@
 package com.zoomzo.spacefleet
 
+import android.app.Activity
 import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.view.WindowManager
-import androidx.activity.OnBackPressedCallback
-import androidx.appcompat.app.AppCompatActivity
 import com.zoomzo.spacefleet.engine.GameView
 import com.zoomzo.spacefleet.screens.MainMenuScreen
 
-/** Single-activity host for the SurfaceView-based game. */
-class GameActivity : AppCompatActivity() {
+/** Single-activity host for the SurfaceView-based game (framework-only, no androidx). */
+class GameActivity : Activity() {
 
     private lateinit var gameView: GameView
 
@@ -23,15 +22,6 @@ class GameActivity : AppCompatActivity() {
             game.setRoot(MainMenuScreen(game))
         }
         setContentView(gameView)
-
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                if (!gameView.onBackPressedConsumed()) {
-                    isEnabled = false
-                    onBackPressedDispatcher.onBackPressed()
-                }
-            }
-        })
     }
 
     override fun onResume() {
@@ -42,6 +32,11 @@ class GameActivity : AppCompatActivity() {
     override fun onPause() {
         gameView.onPause()
         super.onPause()
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onBackPressed() {
+        if (!gameView.onBackPressedConsumed()) super.onBackPressed()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
