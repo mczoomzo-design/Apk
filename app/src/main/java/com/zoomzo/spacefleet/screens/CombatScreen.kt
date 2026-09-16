@@ -4,14 +4,19 @@ import android.graphics.Paint
 import com.zoomzo.spacefleet.combat.BattleResult
 import com.zoomzo.spacefleet.combat.CombatShip
 import com.zoomzo.spacefleet.combat.CombatWorld
+import com.zoomzo.spacefleet.combat.ParticleKind
+import com.zoomzo.spacefleet.combat.ShipArt
+import com.zoomzo.spacefleet.engine.Backdrop
 import com.zoomzo.spacefleet.engine.Button
 import com.zoomzo.spacefleet.engine.Camera
 import com.zoomzo.spacefleet.engine.Game
 import com.zoomzo.spacefleet.engine.Painter
 import com.zoomzo.spacefleet.engine.Palette
 import com.zoomzo.spacefleet.engine.Screen
+import com.zoomzo.spacefleet.engine.Ui
 import com.zoomzo.spacefleet.model.Faction
 import com.zoomzo.spacefleet.model.StarSystem
+import com.zoomzo.spacefleet.util.MathUtil
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -25,11 +30,14 @@ class CombatScreen(
 
     private val state get() = game.state
     private val world = CombatWorld(
-        state.fleet, system, invasion, state.techBonus(), state.formation, ambush || system.isAmbush
+        state.fleet, system, invasion, state.techBonus(), state.formation,
+        ambush || system.isAmbush, state.difficulty
     )
     private var gainedResearch = 0
     private val cam = Camera()
     private var camInit = false
+    private val backdrop = Backdrop(system.id.toLong() * 7919L + 13L)
+    private var t = 0f
 
     private var ended = false
     private var outcome = BattleResult.RUNNING
@@ -45,6 +53,7 @@ class CombatScreen(
     }
 
     override fun update(dt: Float) {
+        t += dt
         if (ended) return
         world.update(dt)
         val r = world.result()
@@ -65,35 +74,62 @@ class CombatScreen(
         sync(p)
         if (!camInit) initCam()
         cam.setViewport(vw, vh)
-        p.clear(Palette.bgDeep)
+        backdrop.draw(p, t, cam.cx)
         drawGrid(p)
 
-        for (t in world.tracers)
-            p.line(cam.worldToScreenX(t.x1), cam.worldToScreenY(t.y1),
-                cam.worldToScreenX(t.x2), cam.worldToScreenY(t.y2), t.color, s(2f))
+        for (tr in world.tracers)
+            p.line(cam.worldToScreenX(tr.x1), cam.worldToScreenY(tr.y1),
+                cam.worldToScreenX(tr.x2), cam.worldToScreenY(tr.y2),
+                Palette.withAlpha(tr.color, 220), s(2f))
 
-        for (proj in world.projectiles) {
-            val x = cam.worldToScreenX(proj.pos.x); val y = cam.worldToScreenY(proj.pos.y)
-            if (x < -20 || x > vw + 20 || y < -20 || y > vh + 20) continue
-            p.circle(x, y, (proj.radius * cam.zoom).coerceAtLeast(s(1.5f)), proj.color)
-        }
+        drawProjectiles(p)
+        drawParticles(p)
 
         for (f in world.fighters) {
             if (!f.alive) continue
             val x = cam.worldToScreenX(f.pos.x); val y = cam.worldToScreenY(f.pos.y)
             val r = (f.size * cam.zoom).coerceAtLeast(s(2f))
+            p.glow(x - cos(f.angle) * r, y - sin(f.angle) * r, r * 0.8f,
+                if (f.team == 0) Palette.enginePlayer else Palette.engineEnemy, 60)
             p.triangle(
-                x + cos(f.angle) * r * 1.6f, y + sin(f.angle) * r * 1.6f,
+                x + cos(f.angle) * r * 1.7f, y + sin(f.angle) * r * 1.7f,
                 x + cos(f.angle + 2.5f) * r, y + sin(f.angle + 2.5f) * r,
-                x + cos(f.angle - 2.5f) * r, y + sin(f.angle - 2.5f) * r, f.color)
+                x + cos(f.angle - 2.5f) * r, y + sin(f.angle - 2.5f) * r,
+                Palette.lighten(f.color, 0.2f))
         }
 
         drawWarpPortals(p)
         for (sh in world.ships) if (sh.alive) drawShip(p, sh)
 
         drawHud(p)
+        drawMinimap(p)
+        drawSelectedInfo(p)
         drawWarpWarning(p)
         if (ended) drawOutcome(p)
+    }
+
+    private fun drawProjectiles(p: Painter) {
+        for (proj in world.projectiles) {
+            val x = cam.worldToScreenX(proj.pos.x); val y = cam.worldToScreenY(proj.pos.y)
+            if (x < -20 || x > vw + 20 || y < -20 || y > vh + 20) continue
+            val r = (proj.radius * cam.zoom).coerceAtLeast(s(1.5f))
+            p.glow(x, y, r * 2.2f, proj.color, 55)
+            p.circle(x, y, r, Palette.lighten(proj.color, 0.4f))
+        }
+    }
+
+    private fun drawParticles(p: Painter) {
+        for (pt in world.particles) {
+            val x = cam.worldToScreenX(pt.pos.x); val y = cam.worldToScreenY(pt.pos.y)
+            if (x < -30 || x > vw + 30 || y < -30 || y > vh + 30) continue
+            val a = (pt.fade * 255).toInt().coerceIn(0, 255)
+            val r = (pt.size * cam.zoom).coerceAtLeast(s(1f))
+            when (pt.kind) {
+                ParticleKind.FLASH -> p.glow(x, y, r, pt.color, (a * 0.6f).toInt())
+                ParticleKind.SMOKE -> p.circle(x, y, r, Palette.withAlpha(pt.color, (a * 0.4f).toInt()))
+                else -> p.circle(x, y, r, Palette.withAlpha(pt.color, a))
+            }
+        }
     }
 
     /** Telegraphed warp portals where hostile reinforcements are about to jump in. */
@@ -101,12 +137,15 @@ class CombatScreen(
         for (w in world.waves) {
             if (!w.portalVisible) continue
             val x = cam.worldToScreenX(w.pos.x); val y = cam.worldToScreenY(w.pos.y)
-            val base = s(46f) * cam.zoom.coerceAtLeast(0.5f)
-            val r = base * (0.4f + w.progress)
-            val a = (140 * (0.4f + w.progress * 0.6f)).toInt()
-            p.ringStroke(x, y, r, Palette.withAlpha(Palette.pirate, a), s(2.5f))
-            p.ringStroke(x, y, r * 0.6f, Palette.withAlpha(Palette.warn, a), s(1.5f))
-            p.text("⚠", x, y + s(6f), s(20f), Palette.withAlpha(Palette.bad, a), Paint.Align.CENTER, true)
+            val base = s(52f) * cam.zoom.coerceAtLeast(0.5f)
+            val r = base * (0.3f + w.progress)
+            val a = (200 * (0.3f + w.progress * 0.7f)).toInt().coerceAtMost(255)
+            p.glow(x, y, r * 0.7f, Palette.shieldBar, (a * 0.4f).toInt())
+            val rot = t * 200f
+            p.arc(x, y, r, rot, 110f, Palette.withAlpha(Palette.accent, a), s(3f))
+            p.arc(x, y, r, rot + 180f, 110f, Palette.withAlpha(Palette.pirate, a), s(3f))
+            p.ringStroke(x, y, r * 0.5f, Palette.withAlpha(Palette.warn, a), s(1.5f))
+            p.text("⚠", x, y + s(6f), s(18f), Palette.withAlpha(Palette.bad, a), Paint.Align.CENTER, true)
         }
     }
 
@@ -122,8 +161,8 @@ class CombatScreen(
     }
 
     private fun drawGrid(p: Painter) {
-        val step = 200f
-        val color = Palette.withAlpha(Palette.strokeSoft, 60)
+        val step = 260f
+        val color = Palette.withAlpha(Palette.strokeSoft, 34)
         var gx = 0f
         while (gx <= world.worldW) {
             val x = cam.worldToScreenX(gx)
@@ -138,42 +177,52 @@ class CombatScreen(
         }
     }
 
+    private val octBuf = FloatArray(16)
+
     private fun drawShip(p: Painter, sh: CombatShip) {
         val x = cam.worldToScreenX(sh.pos.x); val y = cam.worldToScreenY(sh.pos.y)
         val r = (sh.size * cam.zoom).coerceAtLeast(s(4f))
-        if (x < -r - 40 || x > vw + r + 40 || y < -r - 40 || y > vh + r + 40) return
+        if (x < -r - 60 || x > vw + r + 60 || y < -r - 60 || y > vh + r + 60) return
+
+        if (sh.selected && !sh.isStation) drawBrackets(p, x, y, r * 1.7f, Palette.selection)
 
         if (sh.isStation) {
-            // Station: hexagon-ish ring.
-            p.ringStroke(x, y, r, sh.color, s(3f))
-            p.circle(x, y, r * 0.5f, Palette.withAlpha(sh.color, 120))
-            if (sh.shield > 0f) p.ringStroke(x, y, r + s(6f), Palette.withAlpha(Palette.shieldBar, 160), s(2f))
-        } else {
-            if (sh.selected) p.ringStroke(x, y, r + s(8f), Palette.accent, s(2f))
-            // shield bubble
+            p.glow(x, y, r * 1.05f, sh.color, 34)
+            val rot = t * 0.4f
+            for (i in 0 until 8) {
+                val a = rot + i * (MathUtil.TAU / 8f)
+                octBuf[i * 2] = x + cos(a) * r
+                octBuf[i * 2 + 1] = y + sin(a) * r
+            }
+            p.polygon(octBuf, Palette.darken(sh.color, 0.55f))
+            p.polygonOutline(octBuf, Palette.lighten(sh.color, 0.25f), s(2.5f))
+            p.ringStroke(x, y, r * 0.55f, Palette.lighten(sh.color, 0.3f), s(2f))
+            p.circle(x, y, r * 0.22f, Palette.lighten(sh.color, 0.5f))
             if (sh.shield > 0f)
-                p.ringStroke(x, y, r + s(4f),
-                    Palette.withAlpha(Palette.shieldBar, (120 * sh.shieldFraction + 40).toInt()), s(1.5f))
-            val flash = if (sh.hullFlash > 0f) Palette.bad else sh.color
-            p.triangle(
-                x + cos(sh.angle) * r * 1.7f, y + sin(sh.angle) * r * 1.7f,
-                x + cos(sh.angle + 2.4f) * r, y + sin(sh.angle + 2.4f) * r,
-                x + cos(sh.angle - 2.4f) * r, y + sin(sh.angle - 2.4f) * r, flash)
+                p.ringStroke(x, y, r + s(7f), Palette.withAlpha(Palette.shieldBar,
+                    (120 * sh.shieldFraction + 40).toInt()), s(2f))
+        } else {
+            if (sh.shield > 0f)
+                p.ringStroke(x, y, r + s(4f), Palette.withAlpha(Palette.shieldBar,
+                    (110 * sh.shieldFraction + 40).toInt()), s(1.5f))
+            val engine = if (sh.team == 0) Palette.enginePlayer else Palette.engineEnemy
+            ShipArt.draw(p, sh.cls, x, y, sh.angle, r, sh.color, engine, t)
+            if (sh.hullFlash > 0f) p.glow(x, y, r * 1.3f, Palette.bad, 90)
         }
 
-        // bars
+        // health/shield bars
         val bw = (r * 2.4f).coerceAtLeast(s(24f))
-        val bx = x - bw / 2f; val by = y - r - s(12f)
-        p.fillRect(bx, by, bw, s(3f), Palette.withAlpha(Palette.bgPanelLight, 200))
-        p.fillRect(bx, by, bw * sh.hullFraction, s(3f), Palette.hullBar)
+        val bx = x - bw / 2f; val by = y - r - s(13f)
+        p.fillRound(bx, by, bw, s(3.2f), s(1.5f), Palette.withAlpha(Palette.bgDeep, 220))
+        p.fillRound(bx, by, bw * sh.hullFraction, s(3.2f), s(1.5f),
+            if (sh.team == 0) Palette.hullBar else Palette.enemy)
         if (sh.maxShield > 0f) {
-            p.fillRect(bx, by - s(4f), bw, s(2.5f), Palette.withAlpha(Palette.bgPanelLight, 200))
-            p.fillRect(bx, by - s(4f), bw * sh.shieldFraction, s(2.5f), Palette.shieldBar)
+            p.fillRound(bx, by - s(4.5f), bw, s(2.6f), s(1.3f), Palette.withAlpha(Palette.bgDeep, 220))
+            p.fillRound(bx, by - s(4.5f), bw * sh.shieldFraction, s(2.6f), s(1.3f), Palette.shieldBar)
         }
         if (sh.isStation && sh.stationTroops > 0)
-            p.text("พลรบ ${sh.stationTroops}", x, y + r + s(16f), s(12f), Palette.enemy, Paint.Align.CENTER)
+            p.text("พลรบ ${sh.stationTroops}", x, y + r + s(18f), s(12f), Palette.enemy, Paint.Align.CENTER)
 
-        // Flagship marker (a gold diamond above the command ship).
         if (sh.source != null && sh.source.id == state.flagshipId) {
             val dy = by - s(10f)
             p.triangle(x, dy - s(6f), x - s(5f), dy, x + s(5f), dy, Palette.accentWarm)
@@ -181,39 +230,95 @@ class CombatScreen(
         }
     }
 
+    /** RTS-style corner brackets around a selected unit. */
+    private fun drawBrackets(p: Painter, x: Float, y: Float, half: Float, color: Int) {
+        val c = color; val lw = s(2f); val len = half * 0.4f
+        // top-left
+        p.line(x - half, y - half, x - half + len, y - half, c, lw)
+        p.line(x - half, y - half, x - half, y - half + len, c, lw)
+        // top-right
+        p.line(x + half, y - half, x + half - len, y - half, c, lw)
+        p.line(x + half, y - half, x + half, y - half + len, c, lw)
+        // bottom-left
+        p.line(x - half, y + half, x - half + len, y + half, c, lw)
+        p.line(x - half, y + half, x - half, y + half - len, c, lw)
+        // bottom-right
+        p.line(x + half, y + half, x + half - len, y + half, c, lw)
+        p.line(x + half, y + half, x + half, y + half - len, c, lw)
+    }
+
+    /** Tactical minimap in the bottom-right corner. */
+    private fun drawMinimap(p: Painter) {
+        val mw = s(150f); val mh = mw * (world.worldH / world.worldW)
+        val mx = vw - mw - s(12f); val my = vh - mh - s(62f)
+        Ui.frame(p, mx, my, mw, mh, Palette.panelEdge)
+        val kx = mw / world.worldW; val ky = mh / world.worldH
+        for (sh in world.ships) {
+            if (!sh.alive) continue
+            val dx = mx + sh.pos.x * kx; val dy = my + sh.pos.y * ky
+            val col = when { sh.isStation -> Palette.warn; sh.team == 0 -> Palette.player; else -> Palette.enemy }
+            p.circle(dx, dy, s(if (sh.isStation) 3f else 2f), col)
+        }
+        for (w in world.waves) if (w.portalVisible) {
+            p.ringStroke(mx + w.pos.x * kx, my + w.pos.y * ky, s(3f), Palette.pirate, s(1f))
+        }
+        // viewport rect
+        val vx0 = mx + cam.screenToWorldX(0f) * kx; val vy0 = my + cam.screenToWorldY(0f) * ky
+        val vx1 = mx + cam.screenToWorldX(vw) * kx; val vy1 = my + cam.screenToWorldY(vh) * ky
+        p.strokeRound(vx0.coerceIn(mx, mx + mw), vy0.coerceIn(my, my + mh),
+            (vx1 - vx0).coerceAtMost(mw), (vy1 - vy0).coerceAtMost(mh), 0f,
+            Palette.withAlpha(Palette.textPrimary, 120), s(1f))
+    }
+
+    /** Panel describing the single selected ship. */
+    private fun drawSelectedInfo(p: Painter) {
+        if (ended) return
+        val sel = world.ships.firstOrNull { it.selected && it.team == 0 && it.alive } ?: return
+        val w = s(190f); val h = s(74f)
+        val x = s(12f); val y = vh - h - s(62f)
+        Ui.frame(p, x, y, w, h, Palette.panelEdge)
+        p.text(sel.displayName, x + s(12f), y + s(20f), s(14f), Palette.accent, bold = true)
+        p.text(sel.cls.displayName, x + w - s(12f), y + s(20f), s(11f), Palette.textDim, Paint.Align.RIGHT)
+        Ui.bar(p, x + s(12f), y + s(30f), w - s(24f), s(7f), sel.hullFraction, Palette.hullBar)
+        p.text("HULL ${sel.hull.toInt()}/${sel.maxHull.toInt()}", x + s(12f), y + s(45f), s(10f), Palette.textDim)
+        if (sel.maxShield > 0f) {
+            Ui.bar(p, x + s(12f), y + s(50f), w - s(24f), s(6f), sel.shieldFraction, Palette.shieldBar)
+            p.text("SHIELD ${sel.shield.toInt()}", x + s(12f), y + s(66f), s(10f), Palette.shieldBar)
+        }
+    }
+
     private fun drawHud(p: Painter) {
         val h = s(44f)
-        p.fillRect(0f, 0f, vw, h, Palette.withAlpha(Palette.bgPanel, 235))
-        p.line(0f, h, vw, h, Palette.strokeSoft, s(1.5f))
-        val obj = if (invasion) "ภารกิจ: บุกยึดสถานี ${system.name}" else "ยุทธการที่ ${system.name}"
+        Ui.headerStrip(p, h)
+        val obj = if (invasion) "▶ บุกยึดสถานี ${system.name}" else "▶ ยุทธการที่ ${system.name}"
         p.text(obj, s(14f), h * 0.64f, s(15f), Palette.accent, bold = true)
         val myShips = world.playerShipsAlive()
         val enemy = world.ships.count { it.team == 1 && it.alive }
         val incoming = if (world.pendingWaves) "  ⚠วาร์ป:${world.waves.size}" else ""
-        p.text("ยานของเรา: $myShips   ศัตรู: $enemy$incoming", vw - s(14f), h * 0.64f, s(14f),
+        p.text("ยานเรา $myShips   ศัตรู $enemy$incoming", vw - s(14f), h * 0.64f, s(14f),
             if (world.pendingWaves) Palette.warn else Palette.textPrimary, Paint.Align.RIGHT)
+        p.text("[${state.difficulty.displayName}]", vw / 2f + s(60f), h * 0.64f, s(11f),
+            Palette.textMuted, Paint.Align.LEFT)
         if (invasion && world.station != null)
-            p.text("สถานะสถานี: ${(world.station!!.hullFraction * 100).toInt()}%",
-                vw / 2f, h * 0.64f, s(13f), Palette.warn, Paint.Align.CENTER)
+            p.text("สถานี ${(world.station!!.hullFraction * 100).toInt()}%",
+                vw / 2f - s(40f), h * 0.64f, s(13f), Palette.warn, Paint.Align.RIGHT)
 
-        // bottom controls
-        val bw = s(130f); val bh = s(42f); val pad = s(12f)
+        // bottom command bar
+        val bw = s(128f); val bh = s(42f); val pad = s(12f)
         val by = vh - bh - pad
         btnAll.set(pad, by, bw, bh); btnAll.draw(p)
         btnAuto.set(pad * 2 + bw, by, bw, bh); btnAuto.draw(p)
         btnRetreat.set(vw - bw - pad, by, bw, bh); btnRetreat.draw(p)
         val selc = world.selectedCount
         if (selc > 0)
-            p.text("เลือก $selc ลำ · แตะเพื่อสั่งเคลื่อน/โจมตี", vw / 2f, by - s(10f), s(12f),
+            p.text("เลือก $selc ลำ · แตะเพื่อสั่งเคลื่อน/โจมตี", vw / 2f, by + bh * 0.62f, s(12f),
                 Palette.accent, Paint.Align.CENTER)
-        else
-            p.text("แตะยานของคุณเพื่อเลือก · ลากเพื่อเลื่อนจอ · หุบนิ้วเพื่อซูม",
-                vw / 2f, by - s(10f), s(12f), Palette.textMuted, Paint.Align.CENTER)
     }
 
     private fun drawOutcome(p: Painter) {
-        p.fillRect(0f, 0f, vw, vh, Palette.withAlpha(0x000000, 170))
+        p.fillRect(0f, 0f, vw, vh, Palette.withAlpha(0x000000, 180))
         val win = outcome == BattleResult.PLAYER_WIN
+        p.glow(vw / 2f, vh * 0.38f, s(120f), if (win) Palette.good else Palette.bad, 30)
         val title = if (win) "ชัยชนะ!" else "พ่ายแพ้"
         p.text(title, vw / 2f, vh * 0.4f, s(40f), if (win) Palette.good else Palette.bad,
             Paint.Align.CENTER, true)
@@ -253,6 +358,18 @@ class CombatScreen(
             if (btnRetreat.hit(x, y)) { retreat(); return }
             return
         }
+        // Minimap tap -> recenter camera.
+        val mw = s(150f); val mh = mw * (world.worldH / world.worldW)
+        val mx = vw - mw - s(12f); val my = vh - mh - s(62f)
+        if (x in mx..(mx + mw) && y in my..(my + mh)) {
+            cam.cx = (x - mx) / mw * world.worldW
+            cam.cy = (y - my) / mh * world.worldH
+            cam.clampTo(world.worldW, world.worldH)
+            return
+        }
+        // Selected-info panel tap -> ignore.
+        if (x < s(202f) && y > vh - s(136f)) return
+
         val wx = cam.screenToWorldX(x); val wy = cam.screenToWorldY(y)
         if (!world.selectAt(wx, wy)) world.orderAt(wx, wy)
     }
@@ -283,7 +400,8 @@ class CombatScreen(
         state.fleet.removeAll { it.isDestroyed }
 
         if (outcome == BattleResult.PLAYER_WIN) {
-            state.earn(world.salvageCredits)
+            val mult = state.difficulty.rewardMult
+            state.earn((world.salvageCredits * mult).toInt())
             state.earnResearch(world.researchReward)
             gainedResearch = world.researchReward
             // Enemies cleared; node is resolved.

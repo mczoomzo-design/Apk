@@ -103,6 +103,45 @@ class Painter {
         canvas.drawPath(path, fill)
     }
 
+    /** Filled polygon from [x0,y0,x1,y1,...]. */
+    fun polygon(pts: FloatArray, color: Int) {
+        if (pts.size < 6) return
+        fill.color = color
+        path.reset()
+        path.moveTo(pts[0], pts[1])
+        var i = 2
+        while (i + 1 < pts.size) { path.lineTo(pts[i], pts[i + 1]); i += 2 }
+        path.close()
+        canvas.drawPath(path, fill)
+    }
+
+    fun polygonOutline(pts: FloatArray, color: Int, lw: Float) {
+        if (pts.size < 6) return
+        strokePaint.color = color; strokePaint.strokeWidth = lw
+        path.reset()
+        path.moveTo(pts[0], pts[1])
+        var i = 2
+        while (i + 1 < pts.size) { path.lineTo(pts[i], pts[i + 1]); i += 2 }
+        path.close()
+        canvas.drawPath(path, strokePaint)
+    }
+
+    /** Soft additive-looking glow: a few translucent stacked circles. */
+    fun glow(cx: Float, cy: Float, radius: Float, color: Int, intensity: Int = 60) {
+        fill.color = Palette.withAlpha(color, intensity)
+        canvas.drawCircle(cx, cy, radius, fill)
+        fill.color = Palette.withAlpha(color, (intensity * 1.6f).toInt().coerceAtMost(255))
+        canvas.drawCircle(cx, cy, radius * 0.6f, fill)
+        fill.color = Palette.withAlpha(Palette.lighten(color, 0.5f), (intensity * 2).coerceAtMost(255))
+        canvas.drawCircle(cx, cy, radius * 0.3f, fill)
+    }
+
+    fun arc(cx: Float, cy: Float, radius: Float, startDeg: Float, sweepDeg: Float, color: Int, lw: Float) {
+        strokePaint.color = color; strokePaint.strokeWidth = lw
+        rect.set(cx - radius, cy - radius, cx + radius, cy + radius)
+        canvas.drawArc(rect, startDeg, sweepDeg, false, strokePaint)
+    }
+
     fun save() = canvas.save()
     fun restore() = canvas.restore()
     fun translate(dx: Float, dy: Float) = canvas.translate(dx, dy)

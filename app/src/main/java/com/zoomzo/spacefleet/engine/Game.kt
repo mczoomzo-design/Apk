@@ -24,8 +24,9 @@ class Game(val appContext: Context) {
     private var toastMsg: String? = null
     private var toastTimer = 0f
 
-    fun startNewGame() {
-        state = GameState.newGame()
+    fun startNewGame(difficulty: com.zoomzo.spacefleet.model.Difficulty =
+                         com.zoomzo.spacefleet.model.Difficulty.NORMAL) {
+        state = GameState.newGame(difficulty)
         save.save(state)
     }
 

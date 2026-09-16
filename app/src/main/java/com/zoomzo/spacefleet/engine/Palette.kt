@@ -30,6 +30,28 @@ object Palette {
     val hullBar = Color.rgb(120, 224, 143)
     val shieldBar = Color.rgb(127, 190, 255)
 
+    // Harbinger-flavored extras
+    val selection = Color.rgb(124, 255, 155)   // RTS selection green
+    val nebulaA = Color.rgb(38, 46, 110)       // blue cloud
+    val nebulaB = Color.rgb(96, 40, 120)       // violet cloud
+    val nebulaC = Color.rgb(20, 70, 96)        // teal cloud
+    val enginePlayer = Color.rgb(140, 220, 255)
+    val engineEnemy = Color.rgb(255, 150, 90)
+    val panelGlass = Color.argb(220, 14, 20, 40)
+    val panelEdge = Color.rgb(70, 120, 180)
+
     fun withAlpha(color: Int, a: Int): Int =
         Color.argb(a, Color.red(color), Color.green(color), Color.blue(color))
+
+    fun darken(color: Int, f: Float): Int = Color.rgb(
+        (Color.red(color) * (1f - f)).toInt().coerceIn(0, 255),
+        (Color.green(color) * (1f - f)).toInt().coerceIn(0, 255),
+        (Color.blue(color) * (1f - f)).toInt().coerceIn(0, 255)
+    )
+
+    fun lighten(color: Int, f: Float): Int = Color.rgb(
+        (Color.red(color) + (255 - Color.red(color)) * f).toInt().coerceIn(0, 255),
+        (Color.green(color) + (255 - Color.green(color)) * f).toInt().coerceIn(0, 255),
+        (Color.blue(color) + (255 - Color.blue(color)) * f).toInt().coerceIn(0, 255)
+    )
 }

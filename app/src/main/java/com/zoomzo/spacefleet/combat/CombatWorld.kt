@@ -2,6 +2,7 @@ package com.zoomzo.spacefleet.combat
 
 import com.zoomzo.spacefleet.engine.Palette
 import com.zoomzo.spacefleet.model.Catalog
+import com.zoomzo.spacefleet.model.Difficulty
 import com.zoomzo.spacefleet.model.Faction
 import com.zoomzo.spacefleet.model.Formation
 import com.zoomzo.spacefleet.model.Ship
@@ -50,6 +51,7 @@ class CombatWorld(
     private val tech: TechBonus,
     private val formation: Formation,
     private val ambush: Boolean,
+    private val difficulty: Difficulty = Difficulty.NORMAL,
     private val rng: Random = Random(System.nanoTime())
 ) {
     val worldW = 2600f
@@ -60,6 +62,7 @@ class CombatWorld(
     val fighters = mutableListOf<Fighter>()
     val tracers = mutableListOf<Tracer>()
     val waves = mutableListOf<WarpWave>()
+    val particles = mutableListOf<Particle>()
 
     var station: CombatShip? = null
     var stationCaptured = false
@@ -71,7 +74,7 @@ class CombatWorld(
 
     private val enemyFaction: Faction =
         if (system.owner == Faction.PIRATE) Faction.PIRATE else Faction.ENEMY
-    private val enemyDmgMult = 1f + 0.06f * system.danger
+    private val enemyDmgMult = (1f + 0.06f * system.danger) * difficulty.enemyDmgMult
 
     init {
         // Player ships in formation on the left.
@@ -131,7 +134,8 @@ class CombatWorld(
         var count = 0
         if (ambush) count += 1 + rng.nextInt(2)
         if (system.isBoss) count += 2
-        if (rng.nextFloat() < 0.28f) count += 1  // random surprise even in "safe" fights
+        if (rng.nextFloat() < 0.28f * difficulty.ambushMult) count += 1  // random surprise
+        count = kotlin.math.ceil(count * difficulty.ambushMult).toInt()
         for (i in 0 until count) {
             val timer = 4.5f + i * 3.5f + rng.nextFloat() * 2.5f
             val danger = (system.danger + if (system.isBoss) 1 else 0)
@@ -164,9 +168,10 @@ class CombatWorld(
                     cs.angle = rng.nextFloat() * MathUtil.TAU
                     ships.add(cs)
                 }
-                // warp-in flash cross
-                tracers.add(Tracer(w.pos.x - 40f, w.pos.y, w.pos.x + 40f, w.pos.y, Palette.pirate))
-                tracers.add(Tracer(w.pos.x, w.pos.y - 40f, w.pos.x, w.pos.y + 40f, Palette.pirate))
+                // warp-in flash
+                spawnExplosion(w.pos.x, w.pos.y, 1.6f, Palette.shieldBar)
+                tracers.add(Tracer(w.pos.x - 60f, w.pos.y, w.pos.x + 60f, w.pos.y, Palette.lighten(Palette.accent, 0.4f)))
+                tracers.add(Tracer(w.pos.x, w.pos.y - 60f, w.pos.x, w.pos.y + 60f, Palette.lighten(Palette.accent, 0.4f)))
                 it.remove()
             }
         }
@@ -201,7 +206,7 @@ class CombatWorld(
         val def = Catalog.ship(defId)
         val cs = CombatShip(1, defId, def.cls, def.name, enemyFaction.color, null)
         val fit = enemyFit(def.cls)
-        cs.maxHull = def.hull + fit.hullBonus
+        cs.maxHull = (def.hull + fit.hullBonus) * difficulty.enemyHpMult
         cs.hull = cs.maxHull
         cs.maxShield = fit.shield
         cs.shield = fit.shield
@@ -217,9 +222,9 @@ class CombatWorld(
     private fun buildStation(sys: StarSystem): CombatShip {
         val cs = CombatShip(1, "station", ShipClass.BATTLESHIP, "สถานีอวกาศ", enemyFaction.color, null)
         cs.isStation = true
-        cs.maxHull = sys.stationHealth * 2.2f
+        cs.maxHull = sys.stationHealth * 2.2f * difficulty.enemyHpMult
         cs.hull = cs.maxHull
-        cs.maxShield = sys.stationHealth * 1.1f
+        cs.maxShield = sys.stationHealth * 1.1f * difficulty.enemyHpMult
         cs.shield = cs.maxShield
         cs.shieldRegen = 10f
         cs.speed = 0f
@@ -272,6 +277,8 @@ class CombatWorld(
         updateProjectiles(dt)
         updateFighters(dt)
         updateBoarding(dt)
+        val pi = particles.iterator()
+        while (pi.hasNext()) { val pp = pi.next(); pp.update(dt); if (!pp.alive) pi.remove() }
         val ti = tracers.iterator()
         while (ti.hasNext()) { val t = ti.next(); t.life -= dt; if (t.life <= 0f) ti.remove() }
         ships.removeAll { !it.alive && it.team == 1 && !it.isStation }
@@ -460,7 +467,16 @@ class CombatWorld(
     private fun updateBoarding(dt: Float) {
         val st = station ?: return
         if (!st.alive || st.team == 0) return
-        if (st.hull <= 0f) { st.alive = false; stationDestroyed = true; salvageCredits += 600; researchReward += 3; return }
+        if (st.hull <= 0f) {
+            st.alive = false; stationDestroyed = true; salvageCredits += 600; researchReward += 3
+            spawnExplosion(st.pos.x, st.pos.y, 4.5f, Palette.engineEnemy)
+            repeat(6) {
+                val a = rng.nextFloat() * MathUtil.TAU
+                spawnExplosion(st.pos.x + cos(a) * st.size * 0.6f, st.pos.y + sin(a) * st.size * 0.6f,
+                    1.6f, Palette.engineEnemy)
+            }
+            return
+        }
         if (st.shield > 0f || st.hullFraction > 0.4f) return
         var assault = 0
         for (s in ships) {
@@ -478,9 +494,38 @@ class CombatWorld(
     }
 
     private fun onShipMaybeKilled(s: CombatShip) {
-        if (!s.alive && s.team == 1 && !s.isStation) {
+        if (s.alive) return
+        val col = if (s.team == 0) Palette.enginePlayer else Palette.engineEnemy
+        spawnExplosion(s.pos.x, s.pos.y, (s.size / 20f).coerceIn(0.7f, 3.5f), col)
+        if (s.team == 1 && !s.isStation) {
             salvageCredits += (Catalog.shipOrNull(s.defId)?.cost ?: 400) / 10
             researchReward += 1
+        }
+    }
+
+    fun spawnExplosion(x: Float, y: Float, scale: Float, color: Int) {
+        particles.add(Particle(Vec2(x, y), Vec2(0f, 0f), 0.18f, 0.18f,
+            26f * scale, Palette.lighten(color, 0.7f), ParticleKind.FLASH))
+        val sparks = (10 * scale).toInt().coerceIn(6, 26)
+        repeat(sparks) {
+            val a = rng.nextFloat() * MathUtil.TAU
+            val sp = (120f + rng.nextFloat() * 240f) * scale
+            particles.add(Particle(Vec2(x, y), Vec2(cos(a) * sp, sin(a) * sp),
+                0.3f + rng.nextFloat() * 0.4f, 0.7f, (2f + rng.nextFloat() * 3f),
+                Palette.lighten(color, 0.4f), ParticleKind.SPARK))
+        }
+        repeat((sparks / 2).coerceAtLeast(3)) {
+            val a = rng.nextFloat() * MathUtil.TAU
+            val sp = (50f + rng.nextFloat() * 130f) * scale
+            particles.add(Particle(Vec2(x, y), Vec2(cos(a) * sp, sin(a) * sp),
+                0.6f + rng.nextFloat() * 0.6f, 1.2f, (3f + rng.nextFloat() * 4f) * scale,
+                Palette.darken(color, 0.25f), ParticleKind.DEBRIS))
+        }
+        repeat(3) {
+            val a = rng.nextFloat() * MathUtil.TAU
+            particles.add(Particle(Vec2(x, y), Vec2(cos(a) * 30f, sin(a) * 30f),
+                0.9f + rng.nextFloat() * 0.6f, 1.5f, 10f * scale,
+                Palette.withAlpha(Palette.strokeSoft, 120), ParticleKind.SMOKE))
         }
     }
 

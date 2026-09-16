@@ -22,6 +22,7 @@ class GameState private constructor() {
     /** The command ship. If it is lost, the campaign ends. */
     var flagshipId: Int = -1
     var formation: Formation = Formation.WEDGE
+    var difficulty: Difficulty = Difficulty.NORMAL
     val techLevels: MutableMap<TechType, Int> = mutableMapOf()
 
     /** Unequipped gear the player owns, keyed by def id -> count. */
@@ -252,6 +253,7 @@ class GameState private constructor() {
         put("credits", credits); put("research", research); put("day", day)
         put("nextShipId", nextShipId); put("nextMissionId", nextMissionId)
         put("flagshipId", flagshipId); put("formation", formation.name)
+        put("difficulty", difficulty.name)
         put("galaxy", galaxy.toJson())
         put("fleet", JSONArray().also { arr -> fleet.forEach { arr.put(it.toJson()) } })
         put("weapons", JSONObject(ownedWeapons as Map<*, *>))
@@ -262,10 +264,12 @@ class GameState private constructor() {
     }
 
     companion object {
-        fun newGame(rng: Random = Random(System.nanoTime())): GameState {
+        fun newGame(difficulty: Difficulty = Difficulty.NORMAL,
+                    rng: Random = Random(System.nanoTime())): GameState {
             val gs = GameState()
-            gs.credits = 6000
-            gs.research = 4
+            gs.difficulty = difficulty
+            gs.credits = difficulty.startCredits
+            gs.research = difficulty.startResearch
             gs.galaxy = Galaxy.generate(1, rng)
             gs.formation = Formation.WEDGE
 
@@ -295,6 +299,7 @@ class GameState private constructor() {
             gs.nextMissionId = o.optInt("nextMissionId", 1)
             gs.flagshipId = o.optInt("flagshipId", -1)
             gs.formation = Formation.valueOf(o.optString("formation", "WEDGE"))
+            gs.difficulty = Difficulty.valueOf(o.optString("difficulty", "NORMAL"))
             gs.galaxy = Galaxy.fromJson(o.getJSONObject("galaxy"))
             o.getJSONArray("fleet").let { arr ->
                 for (i in 0 until arr.length()) gs.fleet.add(Ship.fromJson(arr.getJSONObject(i)))

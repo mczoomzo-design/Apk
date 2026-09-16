@@ -41,6 +41,25 @@ object Ui {
         }
     }
 
+    /** Sci-fi framed panel: translucent glass fill, bright edge, cut/tick corners. */
+    fun frame(p: Painter, x: Float, y: Float, w: Float, h: Float, accent: Int = Palette.panelEdge) {
+        p.fillRound(x, y, w, h, p.s(3f), Palette.panelGlass)
+        p.strokeRound(x, y, w, h, p.s(3f), accent, p.s(1.5f))
+        val c = p.s(9f); val lw = p.s(2f); val bright = Palette.lighten(accent, 0.3f)
+        // corner ticks
+        p.line(x, y + c, x + c, y, bright, lw)
+        p.line(x + w - c, y, x + w, y + c, bright, lw)
+        p.line(x, y + h - c, x + c, y + h, bright, lw)
+        p.line(x + w - c, y + h, x + w, y + h - c, bright, lw)
+    }
+
+    /** Header strip used at the top of combat/menu screens. */
+    fun headerStrip(p: Painter, h: Float) {
+        p.fillRect(0f, 0f, p.width, h, Palette.panelGlass)
+        p.line(0f, h, p.width, h, Palette.panelEdge, p.s(1.5f))
+        p.line(0f, h - p.s(1.5f), p.width, h - p.s(1.5f), Palette.withAlpha(Palette.accent, 60), p.s(1f))
+    }
+
     /** Horizontal stat/progress bar (0..1). */
     fun bar(p: Painter, x: Float, y: Float, w: Float, h: Float, frac: Float, color: Int) {
         val f = frac.coerceIn(0f, 1f)

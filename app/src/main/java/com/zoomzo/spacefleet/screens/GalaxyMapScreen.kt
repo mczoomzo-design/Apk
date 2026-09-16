@@ -1,6 +1,7 @@
 package com.zoomzo.spacefleet.screens
 
 import android.graphics.Paint
+import com.zoomzo.spacefleet.engine.Backdrop
 import com.zoomzo.spacefleet.engine.Button
 import com.zoomzo.spacefleet.engine.Game
 import com.zoomzo.spacefleet.engine.Painter
@@ -27,6 +28,7 @@ class GalaxyMapScreen(game: Game) : Screen(game) {
     private var lastSector = -1
     private var t = 0f
     private var selectedId = -1
+    private val backdrop = Backdrop(99L)
 
     private val btnJump = Button(label = "JUMP")
     private val btnStation = Button(label = "เข้าสถานี")
@@ -63,8 +65,7 @@ class GalaxyMapScreen(game: Game) : Screen(game) {
     override fun draw(p: Painter) {
         sync(p)
         if (needsFit) fit(p)
-        p.clear(Palette.bgDeep)
-        drawStarfield(p)
+        backdrop.draw(p, t, t * 3f)
 
         // Links.
         for (s in galaxy.systems) for (linkId in s.links) {
@@ -78,13 +79,6 @@ class GalaxyMapScreen(game: Game) : Screen(game) {
 
         Hud.topBar(p, state, "เซกเตอร์ ${galaxy.sectorNumber} · ${galaxy.current.name}")
         drawBottomPanel(p)
-    }
-
-    private fun drawStarfield(p: Painter) {
-        for (i in 0 until 60) {
-            val fx = ((i * 73 + t * 2) % p.width); val fy = ((i * 129) % p.height)
-            p.circle(fx, fy, p.s(0.8f), Palette.withAlpha(Palette.textMuted, 70))
-        }
     }
 
     private fun encounterColor(s: StarSystem): Int = when (s.encounter) {
@@ -123,9 +117,11 @@ class GalaxyMapScreen(game: Game) : Screen(game) {
 
         val col = encounterColor(s)
         val dim = s.resolved && !isCurrent
+        if (!dim) p.glow(x, y, r * 1.5f, col, if (isCurrent || reachable) 60 else 34)
         p.circle(x, y, r, if (dim) Palette.withAlpha(col, 90) else col)
+        p.circle(x, y, r * 0.62f, if (dim) Palette.withAlpha(Palette.bgDeep, 160) else Palette.darken(col, 0.35f))
         p.text(encounterGlyph(s), x, y + p.s(5f), p.s(14f),
-            if (dim) Palette.textMuted else Palette.bgDeep, Paint.Align.CENTER, true)
+            if (dim) Palette.textMuted else Palette.lighten(col, 0.6f), Paint.Align.CENTER, true)
 
         if (s.resolved && !isCurrent)
             p.text("✓", x + r, y - r, p.s(11f), Palette.good, Paint.Align.CENTER, true)
