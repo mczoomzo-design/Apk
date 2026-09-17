@@ -1,0 +1,44 @@
+name: Deploy Noise Alert to GitHub Pages
+
+# Deploy เฉพาะโฟลเดอร์ noise-alert ขึ้น GitHub Pages
+# หลัง merge เข้า main ให้ไปที่ Settings > Pages แล้วเลือก Source = "GitHub Actions" ครั้งเดียว
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "noise-alert/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# ให้ deploy ทีละงาน ไม่ยกเลิกงานที่กำลังรันอยู่
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload noise-alert folder
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: noise-alert
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
