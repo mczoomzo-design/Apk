@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>เครื่องวัดเสียงห้องเรียน · แจ้งเตือนเสียงดัง</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --panel-2: #273449;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --ok: #22c55e;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --ring: rgba(56, 189, 248, .25);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: -apple-system, "Segoe UI", "Sarabun", "Noto Sans Thai", Roboto, sans-serif;
+    background: radial-gradient(1200px 600px at 50% -10%, #1b2b4a 0%, var(--bg) 60%);
+    color: var(--text);
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px;
+    transition: background .15s ease;
+  }
+  body.alert {
+    animation: flash .55s ease-in-out infinite;
+  }
+  @keyframes flash {
+    0%, 100% { background: var(--bg); }
+    50% { background: #4c1414; }
+  }
+  header {
+    text-align: center;
+    margin: 4px 0 14px;
+    width: 100%;
+    max-width: 760px;
+  }
+  header h1 {
+    font-size: clamp(20px, 4vw, 30px);
+    margin: 0 0 4px;
+    letter-spacing: .3px;
+  }
+  header p { margin: 0; color: var(--muted); font-size: 14px; }
+
+  .card {
+    width: 100%;
+    max-width: 760px;
+    background: var(--panel);
+    border: 1px solid rgba(255,255,255,.06);
+    border-radius: 18px;
+    padding: 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.35);
+  }
+
+  /* ---------- Big status ---------- */
+  .status {
+    text-align: center;
+    padding: 26px 20px;
+    border-radius: 18px;
+    transition: background .12s ease, color .12s ease;
+    background: var(--panel-2);
+  }
+  .status.ok { background: rgba(34,197,94,.14); }
+  .status.warn { background: rgba(245,158,11,.16); }
+  .status.danger { background: rgba(239,68,68,.20); }
+  .status .emoji { font-size: clamp(48px, 12vw, 84px); line-height: 1; }
+  .status .msg {
+    font-size: clamp(22px, 5vw, 38px);
+    font-weight: 800;
+    margin-top: 8px;
+  }
+  .status.ok .msg { color: var(--ok); }
+  .status.warn .msg { color: var(--warn); }
+  .status.danger .msg { color: #fca5a5; }
+  .status .sub { color: var(--muted); margin-top: 6px; font-size: 15px; }
+
+  /* ---------- Meter ---------- */
+  .meter-wrap { margin-top: 18px; }
+  .meter-top {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 8px;
+  }
+  .level-num { font-size: clamp(30px, 8vw, 56px); font-weight: 800; }
+  .level-unit { font-size: 16px; color: var(--muted); margin-left: 4px; }
+  .peak-num { color: var(--muted); font-size: 14px; }
+  .bar {
+    position: relative;
+    height: 26px;
+    border-radius: 13px;
+    background: #0b1220;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,.06);
+  }
+  .bar-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 13px;
+    background: linear-gradient(90deg, var(--ok), var(--warn) 65%, var(--danger));
+    transition: width .06s linear;
+  }
+  .bar-threshold {
+    position: absolute; top: -3px; bottom: -3px;
+    width: 3px; background: #fff;
+    box-shadow: 0 0 6px rgba(255,255,255,.8);
+    left: 60%;
+  }
+
+  /* ---------- Controls ---------- */
+  .controls { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+  button {
+    font: inherit;
+    font-weight: 700;
+    border: none;
+    border-radius: 12px;
+    padding: 14px 22px;
+    cursor: pointer;
+    color: #06121f;
+    background: var(--accent);
+    transition: transform .06s ease, filter .12s ease, background .12s ease;
+    min-width: 130px;
+  }
+  button:hover { filter: brightness(1.05); }
+  button:active { transform: scale(.97); }
+  button.secondary { background: var(--panel-2); color: var(--text); border: 1px solid rgba(255,255,255,.1); }
+  button.stop { background: var(--danger); color: #fff; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+
+  .field { margin-bottom: 18px; }
+  .field:last-child { margin-bottom: 0; }
+  .field label {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-weight: 600; margin-bottom: 8px;
+  }
+  .field label .val { color: var(--accent); font-weight: 800; }
+  input[type="range"] {
+    -webkit-appearance: none; appearance: none;
+    width: 100%; height: 8px; border-radius: 6px;
+    background: var(--panel-2); outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--accent); cursor: pointer;
+    border: 3px solid var(--panel);
+    box-shadow: 0 0 0 4px var(--ring);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--accent); cursor: pointer; border: 3px solid var(--panel);
+  }
+  .hint { color: var(--muted); font-size: 13px; margin-top: 6px; }
+
+  .row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .row .field { flex: 1; min-width: 200px; }
+
+  .switch-line { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+  .switch { position: relative; width: 52px; height: 30px; flex: 0 0 auto; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider-sw {
+    position: absolute; inset: 0; background: var(--panel-2);
+    border-radius: 30px; transition: .2s; cursor: pointer;
+  }
+  .slider-sw::before {
+    content: ""; position: absolute; height: 22px; width: 22px;
+    left: 4px; top: 4px; background: #fff; border-radius: 50%; transition: .2s;
+  }
+  .switch input:checked + .slider-sw { background: var(--ok); }
+  .switch input:checked + .slider-sw::before { transform: translateX(22px); }
+
+  .stats { display: flex; gap: 12px; flex-wrap: wrap; }
+  .stat {
+    flex: 1; min-width: 120px; text-align: center;
+    background: var(--panel-2); border-radius: 12px; padding: 14px;
+  }
+  .stat .n { font-size: 26px; font-weight: 800; }
+  .stat .l { color: var(--muted); font-size: 13px; margin-top: 2px; }
+
+  .section-title { font-size: 15px; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .5px; margin: 0 0 14px; }
+
+  footer { color: var(--muted); font-size: 13px; text-align: center; margin: 6px 0 20px; max-width: 760px; }
+  .error {
+    background: rgba(239,68,68,.15); border: 1px solid rgba(239,68,68,.4);
+    color: #fca5a5; padding: 12px 14px; border-radius: 12px; margin-bottom: 12px;
+    display: none;
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1>🔊 เครื่องวัดเสียงห้องเรียน</h1>
+    <p>เปิดค้างไว้หน้าห้อง เมื่อเสียงดังเกินที่ตั้งไว้จะแจ้งเตือนอัตโนมัติ</p>
+  </header>
+
+  <div id="err" class="error"></div>
+
+  <!-- Status + Meter -->
+  <div class="card">
+    <div id="status" class="status">
+      <div class="emoji" id="statusEmoji">🎤</div>
+      <div class="msg" id="statusMsg">กดเริ่มวัดเสียง</div>
+      <div class="sub" id="statusSub">ต้องอนุญาตให้เว็บใช้ไมโครโฟน</div>
+    </div>
+
+    <div class="meter-wrap">
+      <div class="meter-top">
+        <div><span class="level-num" id="levelNum">0</span><span class="level-unit">/ 100</span></div>
+        <div class="peak-num">สูงสุด: <span id="peakNum">0</span></div>
+      </div>
+      <div class="bar">
+        <div class="bar-fill" id="barFill"></div>
+        <div class="bar-threshold" id="barThreshold"></div>
+      </div>
+    </div>
+
+    <div class="controls" style="margin-top:20px;">
+      <button id="startBtn">▶ เริ่มวัดเสียง</button>
+      <button id="stopBtn" class="stop" disabled>⏹ หยุด</button>
+      <button id="fsBtn" class="secondary">⛶ เต็มจอ</button>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="card">
+    <p class="section-title">สถิติ</p>
+    <div class="stats">
+      <div class="stat"><div class="n" id="alertCount">0</div><div class="l">ครั้งที่เตือน</div></div>
+      <div class="stat"><div class="n" id="statCurrent">0</div><div class="l">ระดับปัจจุบัน</div></div>
+      <div class="stat"><div class="n" id="statPeak">0</div><div class="l">ระดับสูงสุด</div></div>
+    </div>
+    <div style="text-align:center;margin-top:14px;">
+      <button class="secondary" id="resetBtn">รีเซ็ตสถิติ</button>
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div class="card">
+    <p class="section-title">ตั้งค่า</p>
+
+    <div class="field">
+      <label>ขีดจำกัดเสียง (เกินกว่านี้จะเตือน) <span class="val" id="thresholdVal">60</span></label>
+      <input type="range" id="threshold" min="10" max="100" value="60" />
+      <div class="hint">ยิ่งค่าน้อย = ยิ่งไว (เตือนง่าย) · ยิ่งค่ามาก = ต้องดังมากถึงเตือน</div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>หน่วงเวลา (ต้องดังต่อเนื่อง) <span class="val" id="sustainVal">1.5</span> วินาที</label>
+        <input type="range" id="sustain" min="0" max="5" step="0.5" value="1.5" />
+        <div class="hint">กันเสียงชั่ววูบ เช่น ไอ จาม เก้าอี้ครูด</div>
+      </div>
+      <div class="field">
+        <label>ความไวไมโครโฟน <span class="val" id="gainVal">1.0</span>x</label>
+        <input type="range" id="gain" min="0.5" max="3" step="0.1" value="1.0" />
+        <div class="hint">เพิ่มถ้าไมค์เบา ลดถ้าไวเกินไป</div>
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="switch-line">
+        <span>🔔 เปิดเสียงแจ้งเตือน</span>
+        <label class="switch"><input type="checkbox" id="soundToggle" checked /><span class="slider-sw"></span></label>
+      </div>
+    </div>
+    <div class="field">
+      <div class="switch-line">
+        <span>💡 กระพริบหน้าจอเมื่อเตือน</span>
+        <label class="switch"><input type="checkbox" id="flashToggle" checked /><span class="slider-sw"></span></label>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    ทำงานในเบราว์เซอร์โดยตรง ไม่มีการส่งข้อมูลเสียงออกไปที่ใด ·
+    แนะนำ Chrome / Edge / Safari รุ่นใหม่ (ต้องเปิดผ่าน https หรือ localhost)
+  </footer>
+
+<script>
+(function () {
+  "use strict";
+
+  // ----- Elements -----
+  const $ = (id) => document.getElementById(id);
+  const startBtn = $("startBtn"), stopBtn = $("stopBtn"), fsBtn = $("fsBtn"), resetBtn = $("resetBtn");
+  const statusEl = $("status"), statusEmoji = $("statusEmoji"), statusMsg = $("statusMsg"), statusSub = $("statusSub");
+  const levelNum = $("levelNum"), peakNum = $("peakNum"), barFill = $("barFill"), barThreshold = $("barThreshold");
+  const alertCountEl = $("alertCount"), statCurrent = $("statCurrent"), statPeak = $("statPeak");
+  const thresholdInput = $("threshold"), thresholdVal = $("thresholdVal");
+  const sustainInput = $("sustain"), sustainVal = $("sustainVal");
+  const gainInput = $("gain"), gainVal = $("gainVal");
+  const soundToggle = $("soundToggle"), flashToggle = $("flashToggle");
+  const errEl = $("err");
+
+  // ----- State -----
+  const LS_KEY = "noiseAlertSettings";
+  let audioCtx = null, analyser = null, micStream = null, rafId = null;
+  let dataArray = null;
+  let running = false;
+  let smoothLevel = 0;         // 0..100 smoothed display level
+  let peak = 0;
+  let alertCount = 0;
+  let overSince = null;        // timestamp when level first went above threshold
+  let inAlert = false;
+  let lastBeep = 0;
+
+  // ----- Settings load/save -----
+  function loadSettings() {
+    try {
+      const s = JSON.parse(localStorage.getItem(LS_KEY) || "{}");
+      if (s.threshold != null) thresholdInput.value = s.threshold;
+      if (s.sustain != null) sustainInput.value = s.sustain;
+      if (s.gain != null) gainInput.value = s.gain;
+      if (s.sound != null) soundToggle.checked = s.sound;
+      if (s.flash != null) flashToggle.checked = s.flash;
+    } catch (e) { /* ignore */ }
+  }
+  function saveSettings() {
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify({
+        threshold: +thresholdInput.value,
+        sustain: +sustainInput.value,
+        gain: +gainInput.value,
+        sound: soundToggle.checked,
+        flash: flashToggle.checked,
+      }));
+    } catch (e) { /* ignore */ }
+  }
+
+  // ----- UI sync -----
+  function syncLabels() {
+    thresholdVal.textContent = thresholdInput.value;
+    sustainVal.textContent = (+sustainInput.value).toFixed(1);
+    gainVal.textContent = (+gainInput.value).toFixed(1);
+    barThreshold.style.left = thresholdInput.value + "%";
+  }
+  [thresholdInput, sustainInput, gainInput].forEach(el =>
+    el.addEventListener("input", () => { syncLabels(); saveSettings(); }));
+  [soundToggle, flashToggle].forEach(el =>
+    el.addEventListener("change", saveSettings));
+
+  function showError(msg) {
+    errEl.textContent = msg;
+    errEl.style.display = "block";
+  }
+  function clearError() { errEl.style.display = "none"; }
+
+  // ----- Alert beep (WebAudio, no file needed) -----
+  function beep() {
+    if (!soundToggle.checked || !audioCtx) return;
+    const now = audioCtx.currentTime;
+    if (now - lastBeep < 0.6) return; // throttle
+    lastBeep = now;
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.type = "square";
+    osc.frequency.setValueAtTime(880, now);
+    osc.frequency.setValueAtTime(660, now + 0.15);
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.exponentialRampToValueAtTime(0.25, now + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+    osc.connect(g); g.connect(audioCtx.destination);
+    osc.start(now); osc.stop(now + 0.32);
+  }
+
+  // ----- Status rendering -----
+  function setStatus(kind, emoji, msg, sub) {
+    statusEl.className = "status " + kind;
+    statusEmoji.textContent = emoji;
+    statusMsg.textContent = msg;
+    statusSub.textContent = sub;
+  }
+
+  // ----- Core measure loop -----
+  function tick() {
+    if (!running) return;
+    analyser.getByteTimeDomainData(dataArray);
+
+    // RMS from time-domain (0..1)
+    let sum = 0;
+    for (let i = 0; i < dataArray.length; i++) {
+      const v = (dataArray[i] - 128) / 128;
+      sum += v * v;
+    }
+    const rms = Math.sqrt(sum / dataArray.length);
+
+    // Map RMS to a 0..100 "loudness" scale (log-ish), apply user gain
+    const gain = +gainInput.value;
+    let level = (20 * Math.log10(rms + 1e-7) + 60) * 1.7 * gain;
+    level = Math.max(0, Math.min(100, level));
+
+    // Smooth for display
+    smoothLevel += (level - smoothLevel) * 0.25;
+    const shown = Math.round(smoothLevel);
+
+    if (shown > peak) peak = shown;
+
+    // Update UI
+    levelNum.textContent = shown;
+    peakNum.textContent = peak;
+    statCurrent.textContent = shown;
+    statPeak.textContent = peak;
+    barFill.style.width = smoothLevel + "%";
+
+    // Threshold logic with sustain
+    const threshold = +thresholdInput.value;
+    const sustainMs = +sustainInput.value * 1000;
+    const now = performance.now();
+
+    if (smoothLevel >= threshold) {
+      if (overSince === null) overSince = now;
+      if (now - overSince >= sustainMs) {
+        if (!inAlert) triggerAlert();
+        keepAlert();
+      } else {
+        // over threshold but not long enough yet
+        if (!inAlert) setStatus("warn", "⚠️", "เริ่มดังแล้ว...", "ถ้ายังดังต่อจะแจ้งเตือน");
+      }
+    } else {
+      overSince = null;
+      if (inAlert) endAlert();
+      if (!inAlert) setStatus("ok", "🙂", "เสียงปกติ", "ระดับเสียงอยู่ในเกณฑ์ดี");
+    }
+
+    rafId = requestAnimationFrame(tick);
+  }
+
+  function triggerAlert() {
+    inAlert = true;
+    alertCount++;
+    alertCountEl.textContent = alertCount;
+  }
+  function keepAlert() {
+    setStatus("danger", "🤫", "เสียงดังเกินไป!", "กรุณาเบาเสียงลงหน่อยนะครับ");
+    if (flashToggle.checked) document.body.classList.add("alert");
+    beep();
+  }
+  function endAlert() {
+    inAlert = false;
+    document.body.classList.remove("alert");
+  }
+
+  // ----- Start / Stop -----
+  async function start() {
+    clearError();
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      showError("เบราว์เซอร์นี้ไม่รองรับการใช้ไมโครโฟน หรือหน้าเว็บไม่ได้เปิดผ่าน https/localhost");
+      return;
+    }
+    try {
+      micStream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+      });
+    } catch (e) {
+      showError("ไม่สามารถเข้าถึงไมโครโฟนได้: " + (e && e.message ? e.message : e) +
+        " — โปรดกดอนุญาตไมโครโฟนแล้วลองใหม่");
+      return;
+    }
+
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") { try { await audioCtx.resume(); } catch(e){} }
+    const source = audioCtx.createMediaStreamSource(micStream);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 1024;
+    analyser.smoothingTimeConstant = 0.3;
+    source.connect(analyser);
+    dataArray = new Uint8Array(analyser.fftSize);
+
+    running = true;
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
+    setStatus("ok", "🙂", "กำลังฟังเสียง...", "ระดับเสียงอยู่ในเกณฑ์ดี");
+    tick();
+  }
+
+  function stop() {
+    running = false;
+    if (rafId) cancelAnimationFrame(rafId);
+    if (micStream) micStream.getTracks().forEach(t => t.stop());
+    if (audioCtx) { try { audioCtx.close(); } catch(e){} }
+    micStream = null; audioCtx = null; analyser = null;
+    overSince = null; inAlert = false;
+    document.body.classList.remove("alert");
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+    smoothLevel = 0;
+    barFill.style.width = "0%";
+    levelNum.textContent = "0";
+    statCurrent.textContent = "0";
+    setStatus("", "🎤", "หยุดวัดเสียงแล้ว", "กดเริ่มเพื่อวัดต่อ");
+  }
+
+  // ----- Buttons -----
+  startBtn.addEventListener("click", start);
+  stopBtn.addEventListener("click", stop);
+  resetBtn.addEventListener("click", () => {
+    alertCount = 0; peak = 0;
+    alertCountEl.textContent = "0";
+    peakNum.textContent = "0";
+    statPeak.textContent = "0";
+  });
+  fsBtn.addEventListener("click", () => {
+    if (!document.fullscreenElement) {
+      (document.documentElement.requestFullscreen || function(){}).call(document.documentElement);
+    } else {
+      (document.exitFullscreen || function(){}).call(document);
+    }
+  });
+
+  // Prevent screen sleeping hint: keep audio ctx alive is handled by mic stream.
+  window.addEventListener("beforeunload", () => { if (running) stop(); });
+
+  // Init
+  loadSettings();
+  syncLabels();
+})();
+</script>
+</body>
+</html>
