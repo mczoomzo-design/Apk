@@ -208,7 +208,7 @@
     <div id="status" class="status">
       <div class="emoji" id="statusEmoji">🎤</div>
       <div class="msg" id="statusMsg">กดเริ่มวัดเสียง</div>
-      <div class="sub" id="statusSub">ต้องอนุญาตให้เว็บใช้ไมโครโฟน</div>
+      <div class="sub" id="statusSub">แตะปุ่มเริ่ม แล้วอนุญาตไมโครโฟน</div>
     </div>
 
     <div class="meter-wrap">
@@ -300,15 +300,18 @@
   const soundToggle = $("soundToggle"), flashToggle = $("flashToggle");
   const errEl = $("err");
 
+  // ทำงานร่วมกับแอป Android (เนทีฟ AudioRecord) ถ้ามี ไม่งั้นใช้ getUserMedia (บนเว็บ)
+  const useNative = !!(window.NativeAudio && typeof window.NativeAudio.start === "function");
+
   // ----- State -----
   const LS_KEY = "noiseAlertSettings";
-  let audioCtx = null, analyser = null, micStream = null, rafId = null;
-  let dataArray = null;
+  let audioCtx = null, analyser = null, micStream = null, rafId = null, dataArray = null; // web mode
+  let beepCtx = null; // output-only context for beep
   let running = false;
-  let smoothLevel = 0;         // 0..100 smoothed display level
+  let smoothLevel = 0;
   let peak = 0;
   let alertCount = 0;
-  let overSince = null;        // timestamp when level first went above threshold
+  let overSince = null;
   let inAlert = false;
   let lastBeep = 0;
 
@@ -321,21 +324,17 @@
       if (s.gain != null) gainInput.value = s.gain;
       if (s.sound != null) soundToggle.checked = s.sound;
       if (s.flash != null) flashToggle.checked = s.flash;
-    } catch (e) { /* ignore */ }
+    } catch (e) {}
   }
   function saveSettings() {
     try {
       localStorage.setItem(LS_KEY, JSON.stringify({
-        threshold: +thresholdInput.value,
-        sustain: +sustainInput.value,
-        gain: +gainInput.value,
-        sound: soundToggle.checked,
-        flash: flashToggle.checked,
+        threshold: +thresholdInput.value, sustain: +sustainInput.value,
+        gain: +gainInput.value, sound: soundToggle.checked, flash: flashToggle.checked,
       }));
-    } catch (e) { /* ignore */ }
+    } catch (e) {}
   }
 
-  // ----- UI sync -----
   function syncLabels() {
     thresholdVal.textContent = thresholdInput.value;
     sustainVal.textContent = (+sustainInput.value).toFixed(1);
@@ -344,34 +343,35 @@
   }
   [thresholdInput, sustainInput, gainInput].forEach(el =>
     el.addEventListener("input", () => { syncLabels(); saveSettings(); }));
-  [soundToggle, flashToggle].forEach(el =>
-    el.addEventListener("change", saveSettings));
+  [soundToggle, flashToggle].forEach(el => el.addEventListener("change", saveSettings));
 
-  function showError(msg) {
-    errEl.textContent = msg;
-    errEl.style.display = "block";
-  }
+  function showError(msg) { errEl.textContent = msg; errEl.style.display = "block"; }
   function clearError() { errEl.style.display = "none"; }
 
-  // ----- Alert beep (WebAudio, no file needed) -----
+  // ----- Beep (output only, ไม่ต้องใช้ไมค์) -----
+  function ensureBeepCtx() {
+    try {
+      if (!beepCtx) beepCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (beepCtx && beepCtx.state === "suspended") beepCtx.resume().catch(() => {});
+    } catch (e) {}
+  }
   function beep() {
-    if (!soundToggle.checked || !audioCtx) return;
-    const now = audioCtx.currentTime;
-    if (now - lastBeep < 0.6) return; // throttle
+    if (!soundToggle.checked || !beepCtx) return;
+    const now = beepCtx.currentTime;
+    if (now - lastBeep < 0.6) return;
     lastBeep = now;
-    const osc = audioCtx.createOscillator();
-    const g = audioCtx.createGain();
+    const osc = beepCtx.createOscillator();
+    const g = beepCtx.createGain();
     osc.type = "square";
     osc.frequency.setValueAtTime(880, now);
     osc.frequency.setValueAtTime(660, now + 0.15);
     g.gain.setValueAtTime(0.0001, now);
     g.gain.exponentialRampToValueAtTime(0.25, now + 0.02);
     g.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
-    osc.connect(g); g.connect(audioCtx.destination);
+    osc.connect(g); g.connect(beepCtx.destination);
     osc.start(now); osc.stop(now + 0.32);
   }
 
-  // ----- Status rendering -----
   function setStatus(kind, emoji, msg, sub) {
     statusEl.className = "status " + kind;
     statusEmoji.textContent = emoji;
@@ -379,38 +379,24 @@
     statusSub.textContent = sub;
   }
 
-  // ----- Core measure loop -----
-  function tick() {
+  // ----- Level processing (ใช้ร่วมกันทั้งเนทีฟและเว็บ) -----
+  // raw = ระดับเสียง 0..100 ยังไม่คูณความไว (gain)
+  function processLevel(raw) {
     if (!running) return;
-    analyser.getByteTimeDomainData(dataArray);
-
-    // RMS from time-domain (0..1)
-    let sum = 0;
-    for (let i = 0; i < dataArray.length; i++) {
-      const v = (dataArray[i] - 128) / 128;
-      sum += v * v;
-    }
-    const rms = Math.sqrt(sum / dataArray.length);
-
-    // Map RMS to a 0..100 "loudness" scale (log-ish), apply user gain
     const gain = +gainInput.value;
-    let level = (20 * Math.log10(rms + 1e-7) + 60) * 1.7 * gain;
-    level = Math.max(0, Math.min(100, level));
+    let level = raw * gain;
+    if (level < 0) level = 0; if (level > 100) level = 100;
 
-    // Smooth for display
     smoothLevel += (level - smoothLevel) * 0.25;
     const shown = Math.round(smoothLevel);
-
     if (shown > peak) peak = shown;
 
-    // Update UI
     levelNum.textContent = shown;
     peakNum.textContent = peak;
     statCurrent.textContent = shown;
     statPeak.textContent = peak;
     barFill.style.width = smoothLevel + "%";
 
-    // Threshold logic with sustain
     const threshold = +thresholdInput.value;
     const sustainMs = +sustainInput.value * 1000;
     const now = performance.now();
@@ -420,40 +406,65 @@
       if (now - overSince >= sustainMs) {
         if (!inAlert) triggerAlert();
         keepAlert();
-      } else {
-        // over threshold but not long enough yet
-        if (!inAlert) setStatus("warn", "⚠️", "เริ่มดังแล้ว...", "ถ้ายังดังต่อจะแจ้งเตือน");
+      } else if (!inAlert) {
+        setStatus("warn", "⚠️", "เริ่มดังแล้ว...", "ถ้ายังดังต่อจะแจ้งเตือน");
       }
     } else {
       overSince = null;
       if (inAlert) endAlert();
       if (!inAlert) setStatus("ok", "🙂", "เสียงปกติ", "ระดับเสียงอยู่ในเกณฑ์ดี");
     }
-
-    rafId = requestAnimationFrame(tick);
   }
 
-  function triggerAlert() {
-    inAlert = true;
-    alertCount++;
-    alertCountEl.textContent = alertCount;
-  }
+  function triggerAlert() { inAlert = true; alertCount++; alertCountEl.textContent = alertCount; }
   function keepAlert() {
     setStatus("danger", "🤫", "เสียงดังเกินไป!", "กรุณาเบาเสียงลงหน่อยนะครับ");
     if (flashToggle.checked) document.body.classList.add("alert");
     beep();
   }
-  function endAlert() {
-    inAlert = false;
-    document.body.classList.remove("alert");
+  function endAlert() { inAlert = false; document.body.classList.remove("alert"); }
+
+  // ----- Native callbacks (แอป Android เรียกเข้ามา) -----
+  window.onNativeLevel = function (level) { processLevel(+level); };
+  window.onNativeError = function (msg) {
+    showError("ไม่สามารถเข้าถึงไมโครโฟนได้: " + msg + " — โปรดอนุญาตสิทธิ์ไมโครโฟนในตั้งค่าแอปแล้วลองใหม่");
+    stop();
+  };
+
+  // ----- Web mode loop (getUserMedia) -----
+  function webTick() {
+    if (!running || useNative) return;
+    analyser.getByteTimeDomainData(dataArray);
+    let sum = 0;
+    for (let i = 0; i < dataArray.length; i++) {
+      const v = (dataArray[i] - 128) / 128;
+      sum += v * v;
+    }
+    const rms = Math.sqrt(sum / dataArray.length);
+    const raw = (20 * Math.log10(rms + 1e-7) + 60) * 1.7;
+    processLevel(raw);
+    rafId = requestAnimationFrame(webTick);
   }
 
   // ----- Start / Stop -----
   async function start() {
     clearError();
+    running = true;
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
+    ensureBeepCtx();
+    setStatus("ok", "🙂", "กำลังฟังเสียง...", "ระดับเสียงอยู่ในเกณฑ์ดี");
+
+    if (useNative) {
+      try { window.NativeAudio.start(); }
+      catch (e) { window.onNativeError(String(e)); }
+      return;
+    }
+
+    // --- Web fallback ---
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       showError("เบราว์เซอร์นี้ไม่รองรับการใช้ไมโครโฟน หรือหน้าเว็บไม่ได้เปิดผ่าน https/localhost");
-      return;
+      stop(); return;
     }
     try {
       micStream = await navigator.mediaDevices.getUserMedia({
@@ -462,31 +473,29 @@
     } catch (e) {
       showError("ไม่สามารถเข้าถึงไมโครโฟนได้: " + (e && e.message ? e.message : e) +
         " — โปรดกดอนุญาตไมโครโฟนแล้วลองใหม่");
-      return;
+      stop(); return;
     }
-
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (audioCtx.state === "suspended") { try { await audioCtx.resume(); } catch(e){} }
+    if (audioCtx.state === "suspended") { try { await audioCtx.resume(); } catch (e) {} }
     const source = audioCtx.createMediaStreamSource(micStream);
     analyser = audioCtx.createAnalyser();
     analyser.fftSize = 1024;
     analyser.smoothingTimeConstant = 0.3;
     source.connect(analyser);
     dataArray = new Uint8Array(analyser.fftSize);
-
-    running = true;
-    startBtn.disabled = true;
-    stopBtn.disabled = false;
-    setStatus("ok", "🙂", "กำลังฟังเสียง...", "ระดับเสียงอยู่ในเกณฑ์ดี");
-    tick();
+    webTick();
   }
 
   function stop() {
     running = false;
-    if (rafId) cancelAnimationFrame(rafId);
-    if (micStream) micStream.getTracks().forEach(t => t.stop());
-    if (audioCtx) { try { audioCtx.close(); } catch(e){} }
-    micStream = null; audioCtx = null; analyser = null;
+    if (useNative) {
+      try { window.NativeAudio.stop(); } catch (e) {}
+    } else {
+      if (rafId) cancelAnimationFrame(rafId);
+      if (micStream) micStream.getTracks().forEach(t => t.stop());
+      if (audioCtx) { try { audioCtx.close(); } catch (e) {} }
+      micStream = null; audioCtx = null; analyser = null;
+    }
     overSince = null; inAlert = false;
     document.body.classList.remove("alert");
     startBtn.disabled = false;
@@ -498,7 +507,6 @@
     setStatus("", "🎤", "หยุดวัดเสียงแล้ว", "กดเริ่มเพื่อวัดต่อ");
   }
 
-  // ----- Buttons -----
   startBtn.addEventListener("click", start);
   stopBtn.addEventListener("click", stop);
   resetBtn.addEventListener("click", () => {
@@ -509,16 +517,14 @@
   });
   fsBtn.addEventListener("click", () => {
     if (!document.fullscreenElement) {
-      (document.documentElement.requestFullscreen || function(){}).call(document.documentElement);
+      (document.documentElement.requestFullscreen || function () {}).call(document.documentElement);
     } else {
-      (document.exitFullscreen || function(){}).call(document);
+      (document.exitFullscreen || function () {}).call(document);
     }
   });
 
-  // Prevent screen sleeping hint: keep audio ctx alive is handled by mic stream.
   window.addEventListener("beforeunload", () => { if (running) stop(); });
 
-  // Init
   loadSettings();
   syncLabels();
 })();
