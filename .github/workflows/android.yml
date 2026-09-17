@@ -13,6 +13,14 @@ on:
       - "settings.gradle.kts"
       - "build.gradle.kts"
       - "gradle.properties"
+  pull_request:
+    paths:
+      - "noisemeter/**"
+      - ".github/workflows/android.yml"
+      - "gradle/**"
+      - "settings.gradle.kts"
+      - "build.gradle.kts"
+      - "gradle.properties"
   workflow_dispatch:
 
 permissions:
