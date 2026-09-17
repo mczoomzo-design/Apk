@@ -21,3 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "SpaceFleetCommander"
 include(":app")
+include(":noisemeter")

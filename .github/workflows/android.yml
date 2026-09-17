@@ -1,0 +1,64 @@
+name: Build Noise Meter APK
+
+# Build โมดูล noisemeter เป็นไฟล์ .apk (debug ติดตั้งได้ทันที)
+# ดาวน์โหลดได้จาก: แท็บ Actions (Artifacts) หรือ Releases (tag: noise-meter-latest)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "noisemeter/**"
+      - ".github/workflows/android.yml"
+      - "gradle/**"
+      - "settings.gradle.kts"
+      - "build.gradle.kts"
+      - "gradle.properties"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install SDK packages
+        run: sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+
+      - name: Build debug APK
+        run: ./gradlew :noisemeter:assembleDebug --stacktrace
+
+      - name: Collect APK
+        run: |
+          mkdir -p out
+          cp noisemeter/build/outputs/apk/debug/*.apk out/noise-meter.apk
+          ls -l out
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: noise-meter-apk
+          path: out/noise-meter.apk
+
+      - name: Publish to Releases (latest)
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: noise-meter-latest
+          name: วัดเสียงห้องเรียน (APK ล่าสุด)
+          body: |
+            ไฟล์ติดตั้งแอปวัดเสียงห้องเรียน (debug build)
+            ดาวน์โหลด noise-meter.apk แล้วติดตั้งบนแท็บเล็ต (เปิดอนุญาต "ติดตั้งจากแหล่งที่ไม่รู้จัก")
+          files: out/noise-meter.apk
